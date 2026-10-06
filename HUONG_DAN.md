@@ -82,6 +82,7 @@ Dán Client ID vào giữa hai dấu ngoặc kép rồi lưu file.
    | `GOOGLE_CLIENT_ID` | Client ID ở bước 3 |
    | `GOOGLE_CLIENT_SECRET` | Client Secret ở bước 3 |
    | `SESSION_SECRET` | Một chuỗi ngẫu nhiên dài do bạn tự tạo |
+   | `ANTHROPIC_API_KEY` | API key Claude cho Trợ lý AI (tạo ở console.anthropic.com). Không có thì app vẫn chạy, chỉ trợ lý báo chưa bật |
 
    Để tạo `SESSION_SECRET`, mở terminal và chạy một trong hai lệnh sau, rồi copy kết quả:
    ```
@@ -157,6 +158,8 @@ public/calsync.js     <- đồng bộ hai chiều Google Calendar (phần thuầ
 5. Có việc phát sinh thì bấm **+ Thêm việc phát sinh**, xem phương án rồi chọn Duyệt / Sửa / Bỏ. App không bao giờ tự sửa lịch.
 6. Mỗi lần mở app sẽ hiện các block đã kết thúc mà chưa check-in. Xem kết quả ở **Ngân sách tuần**.
 
+**Trợ lý AI:** nút "💬 Hỏi trợ lý" góc phải dưới. Netlify Function `assistant` giữ API key và gọi Claude Opus 5.5; công cụ (đọc lịch, tính phương án bằng engine) chạy trong trình duyệt. Trợ lý không tự sửa dữ liệu, chỉ hiện thẻ có nút để người dùng tự duyệt. Cần biến môi trường `ANTHROPIC_API_KEY`; nên đặt giới hạn chi tiêu hằng tháng trong Anthropic Console.
+
 **Dữ liệu:** lần đầu mở bản mới, trước lần ghi đầu tiên app lưu nguyên file cũ thành `greysteel-tasks-backup-v1-NGÀY.json` trong appDataFolder. Changelog nằm ở các file `changelog-YYYY-MM.json` cùng thư mục. Hai thiết bị cùng sửa thì app đọc lại version trên Drive và gộp theo id (bản có `updatedAt` mới hơn thắng).
 
 ---
@@ -167,12 +170,13 @@ Trước khi triển khai bản chỉnh sửa, có thể chạy lại toàn bộ
 
 ```
 node test_logic.js                    # 20 test cho phần tính toán lộ trình
-node test_engine.js                   # 29 test engine lịch thông minh (6 kịch bản nghiệm thu + luật cứng)
+node test_engine.js                   # 33 test engine lịch thông minh (6 kịch bản nghiệm thu, luật cứng, xếp bù)
 node test_data.js                     # 15 test migrate, gộp hai thiết bị, changelog
 node test_calsync.js                  # 12 test đồng bộ Google Calendar
+node test_assistant.js                # 9 test Netlify Function trợ lý AI (Claude giả, không tốn tiền)
 node netlify/functions/_test.js       # 15 test cho phần đăng nhập
 node test_full.js                     # 23 test giao diện thật bằng trình duyệt
-node test_smart.js                    # 25 test giao diện lịch thông minh và hướng dẫn sử dụng
+node test_smart.js                    # 30 test giao diện lịch thông minh, hướng dẫn sử dụng và trợ lý AI
 ```
 
 Hai test trình duyệt cần Playwright và dùng Google API giả lập trong `test_fake_google.js` (không gọi Google thật). Nếu Playwright được cài ở thư mục khác (ví dụ `C:\Users\Admin\node_modules`), chạy kèm `NODE_PATH`:
