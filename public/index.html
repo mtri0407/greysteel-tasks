@@ -274,6 +274,33 @@
   .ci-item{border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;margin-top:10px;}
   .ci-item .ci-btns{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
   .tbl-wrap{overflow-x:auto;}
+
+  /* ---------- Hướng dẫn sử dụng & tour ---------- */
+  .guide-toc{display:flex;flex-wrap:wrap;gap:6px;margin:16px 0;}
+  .guide-sec{margin-bottom:12px;}
+  .guide-sec summary{cursor:pointer;font-size:15px;list-style:none;display:flex;align-items:center;gap:8px;}
+  .guide-sec summary::-webkit-details-marker{display:none;}
+  .guide-sec summary::after{content:'›';margin-left:auto;font-size:20px;color:var(--text-soft);transition:transform .2s;}
+  .guide-sec[open] summary::after{transform:rotate(90deg);}
+  .guide-ic{font-size:20px;}
+  .guide-steps{padding-left:22px;margin:10px 0;line-height:1.6;font-size:13.5px;}
+  .guide-steps li{margin-bottom:6px;}
+  .guide-tip{background:var(--surface-2);border-radius:var(--radius-sm);padding:8px 12px;font-size:12.5px;margin-top:6px;}
+  #guideSearch{margin-top:6px;}
+  .guide-check{margin-bottom:16px;}
+  .guide-item{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:7px 0;border-bottom:1px dashed var(--border);font-size:13.5px;}
+  .guide-item .guide-lbl{flex:1;min-width:160px;}
+  .guide-item.done .guide-lbl{color:var(--text-soft);text-decoration:line-through;}
+  .guide-dot{width:24px;height:24px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;background:var(--surface-2);color:var(--text-soft);flex-shrink:0;}
+  .guide-item.done .guide-dot{background:var(--success);color:#fff;}
+  .tour-block{position:fixed;inset:0;z-index:200;}
+  .tour-hole{position:fixed;z-index:201;border-radius:14px;box-shadow:0 0 0 9999px rgba(20,14,8,.58);pointer-events:none;transition:all .28s var(--ease-out);outline:3px solid var(--orange-400);}
+  .tour-hole.center{outline:none;}
+  .tour-card{position:fixed;z-index:202;background:var(--surface);color:var(--text);border-radius:var(--radius-md);padding:16px 18px;box-shadow:0 18px 48px rgba(0,0,0,.35);max-width:calc(100vw - 24px);animation:popIn .25s var(--ease-out);}
+  .tour-card h3{margin:2px 0 6px;font-size:16px;}
+  .tour-card p{margin:0;font-size:13.5px;line-height:1.55;color:var(--text);}
+  .tour-count{font-size:11px;font-weight:800;color:var(--orange-600);}
+  .tour-btns{display:flex;gap:6px;align-items:center;margin-top:12px;}
   .toast-wrap{position:fixed;bottom:18px;right:18px;display:flex;flex-direction:column;gap:8px;z-index:100;pointer-events:none;}
   @media(max-width:600px){.toast-wrap{left:14px;right:14px;bottom:14px;align-items:stretch;}}
   .toast{background:var(--steel-900);color:#fff;padding:11px 17px;border-radius:var(--radius-sm);font-size:13px;
@@ -384,6 +411,7 @@
       </div>
       <div style="display:flex;align-items:center;gap:10px;">
         <span id="connStatus" class="status-pill ok">● đã đồng bộ</span>
+        <button class="icon-btn" id="helpBtn" title="Hướng dẫn cho màn hình này">❓</button>
         <button class="icon-btn" id="themeToggle" title="Đổi giao diện sáng/tối">🌙</button>
       </div>
     </div>
@@ -399,6 +427,7 @@
 <script src="/datastore.js"></script>
 <script src="/engine.js"></script>
 <script src="/calsync.js"></script>
+<script src="/guide.js"></script>
 <script>
 /* ======================= CONFIG ======================= */
 /* 1) Tạo OAuth Client ID trên Google Cloud Console (xem HUONG_DAN.md) và dán vào đây.
@@ -447,6 +476,7 @@ const VIEWS = [
   {id:'notes', label:'Ghi chú vặt', icon:'📝'},
   {id:'stats', label:'Thống kê', icon:'📊'},
   {id:'settings', label:'Cài đặt', icon:'⚙️'},
+  {id:'guide', label:'Hướng dẫn sử dụng', icon:'📖'},
 ];
 
 /* Mẫu đơn vị đo cho mục tiêu. Người dùng chọn nhanh hoặc tự gõ đơn vị riêng. */
@@ -972,7 +1002,8 @@ function renderTopbar(){
     schedule:['Lịch thông minh','Lịch khung, block theo tuần và xử lý việc phát sinh'],
     budget:['Ngân sách tuần','Giờ đã làm thật so với kế hoạch của từng mục tiêu'],list:['Danh sách việc','Lọc, tìm kiếm, sắp xếp'],
     people:['Ngày đặc biệt','Sinh nhật, kỷ niệm và các mốc quan trọng'],notes:['Ghi chú vặt','Những điều nhỏ nhặt cần nhớ'],
-    stats:['Thống kê','Theo dõi tiến độ của bạn'],settings:['Cài đặt','Tài khoản, hồ sơ, thông báo']};
+    stats:['Thống kê','Theo dõi tiến độ của bạn'],settings:['Cài đặt','Tài khoản, hồ sơ, thông báo'],
+    guide:['Hướng dẫn sử dụng','Từng bước cho mọi tính năng, kèm tour tương tác']};
   $('#pageTitle').textContent = titles[state.view][0];
   $('#pageSub').textContent = titles[state.view][1];
   const cs=$('#connStatus');
@@ -2431,6 +2462,7 @@ async function smartOnOpen(){
 /* ======================= GIAO DIỆN LỊCH THÔNG MINH ======================= */
 function renderSmartBanners(){
   const box=el('div');
+  box.appendChild(guideInviteBanner());
   const due=checkinDue();
   if(due.length){
     const b=el('div','banner',`✅ Có <strong>${due.length}</strong> block đã kết thúc chưa check-in. `);
@@ -2471,6 +2503,7 @@ function useBuffer(buf, choice){
 function RENDER_SCHEDULE(){
   const wrap=el('div');
   wrap.appendChild(renderSmartBanners());
+  wrap.appendChild(smartChecklistCard(false));
   const tabs=el('div','sch-tabs');
   [['week','🗓️ Tuần'],['templates','🧩 Lịch khung'],['sleep','😴 Giờ ngủ & cài đặt']].forEach(([id,l])=>{
     const b=el('button','btn btn-ghost btn-sm'+(state.schedule.tab===id?' on':''), l);
@@ -2920,7 +2953,8 @@ function renderSleepSettings(){
         const k=st+'|'+en; (groups[k]=groups[k]||{start:st,end:en,wakeWeekdays:[]}).wakeWeekdays.push(wd);
       });
       state.settings.sleepRules=Object.values(groups);
-      scheduleSave(); toast('Đã lưu giờ ngủ 😴');
+      state.settings.sleepRulesSetAt=nowIso();
+      scheduleSave(); toast('Đã lưu giờ ngủ 😴'); softRefresh();
     };
     $('#st-push').onchange=e=>{ state.settings.syncBlocksToCalendar=e.target.checked; scheduleSave(); };
     $('#st-read').onchange=e=>{ state.settings.readCalendar=e.target.checked; scheduleSave(); };
@@ -2970,7 +3004,7 @@ function RENDER_BUDGET(){
 
 /* ======================= RENDER MAP & INIT ======================= */
 const RENDERERS = { home:RENDER_HOME, planner:RENDER_PLANNER, matrix:RENDER_MATRIX, calendar:RENDER_CALENDAR,
-  schedule:RENDER_SCHEDULE, budget:RENDER_BUDGET,
+  schedule:RENDER_SCHEDULE, budget:RENDER_BUDGET, guide:RENDER_GUIDE,
   list:RENDER_LIST, people:RENDER_PEOPLE, notes:RENDER_NOTES, stats:RENDER_STATS, settings:RENDER_SETTINGS };
 
 $('#themeToggle').onclick=async()=>{
@@ -2981,6 +3015,12 @@ $('#themeToggle').onclick=async()=>{
   softRefresh();
 };
 $('#signOutBtn').onclick=signOut;
+/* Nút ❓: mở đúng mục hướng dẫn của màn hình đang xem */
+$('#helpBtn').onclick=()=>{
+  const map={home:'home', planner:'goals', matrix:'tasks', calendar:'tasks', list:'tasks', people:'people', notes:'people', stats:'faq', settings:'settings', budget:'budget',
+    schedule: state.schedule.tab==='templates'||state.schedule.tab==='sleep' ? 'smart-setup' : 'smart-disruption'};
+  openGuide(map[state.view]||null);
+};
 
 /* Hiệu ứng gợn sóng trên mọi nút, gắn 1 lần ở cấp document nên nút tạo mới về sau
    vẫn có hiệu ứng mà không cần gắn lại. */

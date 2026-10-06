@@ -342,16 +342,90 @@ function assert(c, m) { if (!c) throw new Error('ASSERT FAILED: ' + m); }
     assert(d.blocks.find(b => b.id === 'buf-test').bufferChoice === 'study');
   });
 
+  /* ======================= HƯỚNG DẪN SỬ DỤNG ======================= */
+  await step('Hướng dẫn: trang có đủ mục, tìm kiếm chỉ ẩn/hiện mục (không vẽ lại ô nhập)', async () => {
+    await context.clock.setFixedTime(at('2026-10-07T16:00:00+07:00')); // về lại tuần đã sinh block
+    await closeAnyModal(page);
+    await nav(page, 'Hướng dẫn sử dụng');
+    const n = await page.locator('.guide-sec').count();
+    assert(n >= 12, 'phải có đủ các mục hướng dẫn, thấy ' + n);
+    await page.fill('#guideSearch', 'khung đệm');
+    const visible = await page.locator('.guide-sec:visible').count();
+    assert(visible > 0 && visible < n, 'tìm kiếm phải lọc mục, thấy ' + visible);
+    assert(await page.inputValue('#guideSearch') === 'khung đệm', 'ô tìm kiếm giữ nguyên chữ tiếng Việt');
+    await page.fill('#guideSearch', 'zzzkhongco');
+    assert(await page.isVisible('text=Không tìm thấy mục nào khớp'));
+    await page.fill('#guideSearch', '');
+  });
+
+  await step('Hướng dẫn: nút "Làm thử" mở đúng màn hình, nút ❓ mở đúng mục', async () => {
+    await page.locator('#guide-smart-setup summary').click();
+    await page.click('#guide-smart-setup button:has-text("Mở Giờ ngủ")');
+    await page.waitForTimeout(300);
+    assert(await page.evaluate(() => state.view === 'schedule' && state.schedule.tab === 'sleep'), 'phải mở tab Giờ ngủ');
+    await page.click('#helpBtn'); await page.waitForTimeout(600);
+    assert(await page.evaluate(() => state.view === 'guide'), 'nút ❓ mở trang hướng dẫn');
+    assert(await page.evaluate(() => document.getElementById('guide-smart-setup').open), 'mở đúng mục cài đặt lịch thông minh');
+  });
+
+  await step('Danh sách Bắt đầu nhanh tự đánh dấu theo dữ liệu thật', async () => {
+    const items = await page.evaluate(() => smartChecklist().map(x => [x.id, x.done]));
+    const done = Object.fromEntries(items);
+    assert(done.rank && done.budget && done.template && done.sleep && done.week && done.disruption && done.checkin, JSON.stringify(items));
+    assert(await page.locator('#smartChecklist .guide-item.done').count() === 7);
+  });
+
+  await step('Tour Lịch thông minh: chạy hết các bước, không lỗi, lưu đã xem và ẩn lời mời', async () => {
+    await page.evaluate(() => { state.profile.guide = {}; });
+    await nav(page, 'Trang chủ');
+    assert(await page.isVisible('#tourInvite'), 'lần đầu phải có lời mời xem tour');
+    await page.click('#tourInvite button:has-text("Xem tour")');
+    const total = await page.evaluate(() => TOURS.smart.length);
+    for (let i = 0; i < total; i++) {
+      await page.waitForSelector('#tourCard', { state: 'visible' });
+      await page.waitForTimeout(550);
+      const txt = await page.innerText('#tourCard');
+      assert(txt.includes(`${i + 1} / ${total}`), 'đúng số bước: ' + txt.slice(0, 40));
+      const box = await page.locator('#tourCard').boundingBox();
+      assert(box && box.x >= 0 && box.y >= 0 && box.x + box.width <= 1280 && box.y + box.height <= 900, 'thẻ tour nằm trong màn hình ở bước ' + (i + 1));
+      const lit = await page.evaluate(() => !!(tourState && tourState.el));
+      assert(lit, 'bước ' + (i + 1) + ' phải làm nổi được một phần tử thật');
+      await page.click('#tourNext');
+    }
+    await page.waitForTimeout(300);
+    assert(!(await page.isVisible('#tourCard')), 'tour đã đóng');
+    await idle(page);
+    assert((G.data().profile.guide.tourSeen || {}).smart >= 1, 'lưu đã xem tour lên Drive');
+    await nav(page, 'Trang chủ');
+    assert(!(await page.isVisible('#tourInvite')), 'không mời lại sau khi đã xem');
+  });
+
+  await step('Tour toàn bộ app: Trước/Tiếp/Esc hoạt động', async () => {
+    await nav(page, 'Hướng dẫn sử dụng');
+    await page.click('#tourAppBtn');
+    await page.waitForTimeout(500);
+    await page.click('#tourNext'); await page.waitForTimeout(400);
+    assert(/2 \//.test(await page.innerText('#tourCard')));
+    await page.click('#tourPrev'); await page.waitForTimeout(400);
+    assert(/1 \//.test(await page.innerText('#tourCard')));
+    await page.keyboard.press('Escape'); await page.waitForTimeout(300);
+    assert(!(await page.isVisible('#tourCard')), 'Esc đóng tour');
+  });
+
   await step('Giao diện Lịch thông minh trên điện thoại không tràn ngang', async () => {
     const m = await context.newPage(); watch(m);
     await m.setViewportSize({ width: 390, height: 844 });
     await m.goto(URL0); await m.waitForFunction(() => state.dataLoaded); await idle(m);
     await closeAnyModal(m);
-    for (const label of ['Lịch thông minh', 'Ngân sách tuần']) {
+    for (const label of ['Lịch thông minh', 'Ngân sách tuần', 'Hướng dẫn sử dụng']) {
       await m.click(`.navbtn:has-text("${label}")`); await m.waitForTimeout(300);
       const w = await m.evaluate(() => document.documentElement.scrollWidth);
       assert(w <= 400, `${label}: scrollWidth=${w}`);
     }
+    await m.click('#tourSmartBtn'); await m.waitForTimeout(800);
+    const box = await m.locator('#tourCard').boundingBox();
+    assert(box && box.x >= 0 && box.x + box.width <= 390 && box.y + box.height <= 844, 'thẻ tour nằm gọn trên điện thoại');
+    await m.keyboard.press('Escape');
     await m.close();
   });
 

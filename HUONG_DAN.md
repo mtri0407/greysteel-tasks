@@ -172,7 +172,7 @@ node test_data.js                     # 15 test migrate, gộp hai thiết bị,
 node test_calsync.js                  # 12 test đồng bộ Google Calendar
 node netlify/functions/_test.js       # 15 test cho phần đăng nhập
 node test_full.js                     # 23 test giao diện thật bằng trình duyệt
-node test_smart.js                    # 20 test giao diện lịch thông minh bằng trình duyệt
+node test_smart.js                    # 25 test giao diện lịch thông minh và hướng dẫn sử dụng
 ```
 
 Hai test trình duyệt cần Playwright và dùng Google API giả lập trong `test_fake_google.js` (không gọi Google thật). Nếu Playwright được cài ở thư mục khác (ví dụ `C:\Users\Admin\node_modules`), chạy kèm `NODE_PATH`:
