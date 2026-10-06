@@ -118,6 +118,17 @@ function createAppServer(port, opts) {
       res.writeHead(200, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ ok: true, access_token: 'AT_REFRESHED', expires_in: 3600 }));
     }
     if (url.pathname === '/.netlify/functions/logout') { st.session = false; res.writeHead(200, { 'Content-Type': 'application/json' }); return res.end('{"ok":true}'); }
+    /* Trợ lý AI giả: test gán st.assistant = (body) => ({status, json}) để trả lời theo kịch bản */
+    if (url.pathname === '/.netlify/functions/assistant') {
+      let raw = '';
+      req.on('data', c => { raw += c; });
+      req.on('end', () => {
+        let out = { status: 503, json: { ok: false, error: 'not_configured' } };
+        try { if (st.assistant) out = st.assistant(JSON.parse(raw || '{}')); } catch (e) { out = { status: 500, json: { ok: false, error: 'test_script_error', detail: e.message } }; }
+        res.writeHead(out.status, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(out.json));
+      });
+      return;
+    }
     if (url.pathname === '/.netlify/functions/auth-callback') { st.session = true; res.writeHead(302, { Location: `http://localhost:${port}/#at=AT_FIRST&exp=3600` }); return res.end(); }
     const file = path.join(pub, path.normalize(url.pathname).replace(/^([\\/])+/, ''));
     if (url.pathname !== '/' && file.startsWith(pub) && fs.existsSync(file) && fs.statSync(file).isFile()) {

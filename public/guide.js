@@ -7,7 +7,7 @@
    lúc được gọi, nên phải nạp TRƯỚC script chính.
    Khi màn hình nào đổi, sửa luôn nội dung ở đây và TĂNG GUIDE_VERSION để tour được mời xem lại. */
 
-const GUIDE_VERSION = 1;
+const GUIDE_VERSION = 2; // 2: thêm Trợ lý AI và Xếp bù
 
 /* ---------- Nội dung trang hướng dẫn ----------
    Mỗi mục: id, icon, title, intro, steps (danh sách bước), tips (mẹo), try (nút làm thử). */
@@ -108,7 +108,8 @@ const GUIDE_SECTIONS = [
       'Mỗi lần mở app, các block đã kết thúc mà chưa check-in hiện ra. Khi app đang mở, trình duyệt cũng báo lúc block vừa kết thúc (cần cấp quyền thông báo ở Cài đặt).',
       'Với mỗi block chọn: "Xong", "Một phần" (chọn 25, 50 hay 75%), hoặc "Bỏ".',
       'Một phần hoặc Bỏ thì chọn lý do: phát sinh, mệt, mất tập trung, ốm, khác. Có thể ghi chú thêm.',
-      'Việc trong block bị bỏ hoặc làm dở tự quay về hàng chờ. App đề xuất chỗ mới trong hạn cho từng việc, bấm "Duyệt đề xuất" để xếp luôn.',
+      'Block bị Bỏ hoặc làm Một phần: app mở màn "Bù giờ và xếp lại việc", đề xuất block bù cho phần thời gian còn thiếu, xếp sớm nhất trong tuần (khung đệm trước, rồi khoảng trống cùng năng lượng). Việc trong block gốc chuyển sang block bù đầu tiên. Bấm "Duyệt tất cả" để áp dụng, "Để sau" nếu chưa muốn.',
+      'Muốn bù sau cũng được: trên thẻ block bị Bỏ, làm dở hoặc chưa rõ có nút "Xếp bù". Phần không còn chỗ trong tuần sẽ được báo rõ số phút mục tiêu bị hụt.',
       'Quá 48 giờ chưa check-in, block chuyển thành "chưa rõ" và không được tính là đã làm.',
       'Có thể check-in từng block bằng nút "Check-in" trên thẻ block ở tab Tuần.',
     ],
@@ -141,6 +142,17 @@ const GUIDE_SECTIONS = [
     ],
     try: [{ label: 'Mở Cài đặt', view: 'settings' }] },
 
+  { id: 'assistant', icon: '💬', title: 'Trợ lý AI', intro: 'Hỏi bất cứ điều gì về cách dùng app, hoặc nhờ trợ lý xử lý tình huống.',
+    steps: [
+      'Bấm nút "💬 Hỏi trợ lý" ở góc phải dưới màn hình.',
+      'Gõ câu hỏi bằng lời bình thường, ví dụ: "Tối nay 18h có họp 1 tiếng, xếp giúp mình", "Block sáng nay mình lỡ thì làm sao?", "Tuần này GPA có đủ giờ không?".',
+      'Trợ lý tự xem lịch, việc và ngân sách giờ của bạn để trả lời đúng tình huống.',
+      'Khi cần thay đổi (thêm việc phát sinh, xếp bù, thêm việc), trợ lý hiện một thẻ có nút. Bấm nút để mở đúng màn hình duyệt của app, kiểm tra rồi mới bấm Duyệt.',
+      'Bấm "Cuộc mới" để bắt đầu cuộc trò chuyện khác.',
+    ],
+    tips: ['Trợ lý không bao giờ tự sửa dữ liệu. Câu hỏi và phần dữ liệu trợ lý cần xem được gửi tới Claude (Anthropic) để trả lời.'],
+    try: [{ label: 'Mở trợ lý', action: 'assistant' }] },
+
   { id: 'faq', icon: '❓', title: 'Câu hỏi thường gặp', intro: '',
     steps: [
       'Dữ liệu nằm ở đâu? Trong một thư mục ẩn của Google Drive chính bạn (appDataFolder). Mỗi tháng có thêm một file nhật ký thay đổi (changelog).',
@@ -162,7 +174,8 @@ function RENDER_GUIDE(){
   const acts = el('div', 'sch-actions');
   const t1 = el('button', 'btn btn-primary', '▶ Tour Lịch thông minh (1 phút)'); t1.id = 'tourSmartBtn'; t1.onclick = () => startTour('smart');
   const t2 = el('button', 'btn btn-ghost', '▶ Tour toàn bộ app'); t2.id = 'tourAppBtn'; t2.onclick = () => startTour('app');
-  acts.append(t1, t2); top.appendChild(acts);
+  const t3 = el('button', 'btn btn-ghost', '💬 Hỏi trợ lý AI'); t3.id = 'askAiBtn'; t3.onclick = () => openAssistant();
+  acts.append(t1, t2, t3); top.appendChild(acts);
   /* Ô tìm kiếm: chỉ ẩn/hiện mục, KHÔNG vẽ lại ô nhập để không làm hỏng bộ gõ tiếng Việt */
   const search = el('input'); search.id = 'guideSearch'; search.placeholder = 'Tìm trong hướng dẫn, ví dụ: check-in, giờ ngủ, khung đệm...';
   top.appendChild(search);
@@ -209,6 +222,7 @@ function openGuideSection(id){
 }
 function guideTry(t){
   if (t.tour) return startTour(t.tour);
+  if (t.action === 'assistant') return openAssistant();
   if (t.action === 'checkin') { if (!checkinDue().length) { toast('Hiện chưa có block nào chờ check-in'); return; } return openCheckinModal(); }
   if (t.view) {
     if (t.view === 'planner') state.planner = { level: 'list', goalId: null, phaseId: null };
@@ -307,9 +321,11 @@ const TOURS = {
     { target: () => $('#addDisruption'), title: 'Bước 5: việc phát sinh',
       body: 'Có việc đột xuất thì bấm đây: nhập thời lượng, ưu tiên, giờ cố định hoặc khung linh hoạt. App đưa phương án: việc mới nằm đâu, block nào bị dời, block nào bị mất, ngân sách trước và sau. Bạn bấm Duyệt, Sửa hoặc Bỏ.' },
     { target: () => $('#smartChecklist') || $('#openCheckin'), title: 'Bước 6: check-in',
-      body: 'Sau mỗi block, app hỏi Xong, Một phần hay Bỏ (kèm lý do). Mỗi lần mở app sẽ hiện các block chờ check-in. Việc trong block bị bỏ tự quay về hàng chờ và được đề xuất chỗ mới.' },
+      body: 'Sau mỗi block, app hỏi Xong, Một phần hay Bỏ (kèm lý do). Mỗi lần mở app sẽ hiện các block chờ check-in. Block bị Bỏ hoặc làm dở được đề xuất xếp bù trong tuần, việc bên trong đi theo block bù.' },
     { go: { view: 'budget' }, target: navBtn('Ngân sách tuần'), title: 'Ngân sách tuần',
       body: 'Giờ đã làm thật so với kế hoạch của từng mục tiêu, xếp theo hạng. Mục tiêu hạng 1 sắp hụt quá 10% thì app cảnh báo.' },
+    { target: () => $('#aiFab'), title: 'Trợ lý AI',
+      body: 'Không chắc phải làm gì? Bấm đây và hỏi bằng lời bình thường, ví dụ "tối nay 18h có họp, xếp giúp mình" hay "block sáng nay mình lỡ thì sao". Trợ lý xem lịch của bạn và chuẩn bị phương án, bạn bấm duyệt.' },
     { target: navBtn('Hướng dẫn sử dụng'), title: 'Xong rồi!',
       body: 'Hướng dẫn chi tiết từng bước luôn nằm ở mục "Hướng dẫn sử dụng". Ở đầu Lịch thông minh có danh sách "Bắt đầu nhanh" tự đánh dấu khi bạn làm xong từng bước.' },
   ],
@@ -326,6 +342,7 @@ const TOURS = {
     { target: navBtn('Thống kê'), title: 'Thống kê', body: 'Tỷ lệ hoàn thành chung, theo mức ưu tiên và 7 ngày gần đây.' },
     { target: navBtn('Cài đặt'), title: 'Cài đặt', body: 'Hồ sơ, quyền thông báo trình duyệt, chế độ tối.' },
     { target: () => $('#connStatus'), title: 'Trạng thái lưu', body: '"đã lưu vào Drive" nghĩa là mọi thay đổi đã nằm an toàn trong Google Drive của bạn.' },
+    { target: () => $('#aiFab'), title: 'Trợ lý AI', body: 'Hỏi bất cứ điều gì về cách dùng app hoặc nhờ xử lý tình huống. Trợ lý chỉ chuẩn bị phương án, bạn tự bấm duyệt.' },
     { target: navBtn('Hướng dẫn sử dụng'), title: 'Hướng dẫn sử dụng', body: 'Quay lại đây bất cứ lúc nào để đọc hướng dẫn chi tiết từng bước hoặc xem lại tour.' },
   ],
 };
@@ -410,3 +427,6 @@ function endTour(silent){
   tourState = null;
   if (had && !silent) { markTourSeen(id); softRefresh(); }
 }
+
+/* Netlify Function của trợ lý AI dùng chung nội dung hướng dẫn này (một nguồn duy nhất). */
+if (typeof module === 'object' && module.exports) module.exports = { GUIDE_VERSION, GUIDE_SECTIONS };

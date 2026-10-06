@@ -1,0 +1,11 @@
+{
+  "name": "greysteel-tasks",
+  "private": true,
+  "description": "Greysteel Tasks. Giao diện (public/) không có build step; dependency ở đây chỉ dùng cho Netlify Functions.",
+  "scripts": {
+    "test": "node test_logic.js && node test_engine.js && node test_data.js && node test_calsync.js && node test_assistant.js && node netlify/functions/_test.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.131.0"
+  }
+}

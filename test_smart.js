@@ -7,7 +7,7 @@ const { createFakeGoogle, createAppServer, launchOptions } = require('./test_fak
 const PORT = 8952;
 const URL0 = `http://localhost:${PORT}/`;
 const G = createFakeGoogle();
-const { server } = createAppServer(PORT, { signedIn: true });
+const { server, st: SRV } = createAppServer(PORT, { signedIn: true });
 
 /* File dữ liệu bản cũ (chưa có schemaVersion), đúng định dạng app đang ghi trước Mốc 2 */
 const OLD_FILE = JSON.stringify({
@@ -40,7 +40,7 @@ function assert(c, m) { if (!c) throw new Error('ASSERT FAILED: ' + m); }
     try { await fn(); results.push('OK   ' + name); }
     catch (e) { results.push('FAIL ' + name + ' :: ' + e.message.split('\n')[0]); }
   };
-  const watch = p => { p.on('pageerror', e => errors.push('PAGEERROR: ' + e.message)); p.on('console', m => { if (m.type() === 'error' && !/ERR_|401|404|410|500/.test(m.text())) errors.push('CONSOLE: ' + m.text()); }); };
+  const watch = p => { p.on('pageerror', e => errors.push('PAGEERROR: ' + e.message)); p.on('console', m => { if (m.type() === 'error' && !/ERR_|401|404|410|500|502|503/.test(m.text())) errors.push('CONSOLE: ' + m.text()); }); };
   const idle = async p => {
     for (let i = 0; i < 3; i++) {
       await p.evaluate(() => calQueue);
@@ -422,6 +422,101 @@ function assert(c, m) { if (!c) throw new Error('ASSERT FAILED: ' + m); }
     assert(!(await page.isVisible('#tourCard')), 'Esc đóng tour');
   });
 
+  /* ======================= TRỢ LÝ AI (máy chủ giả, không gọi Claude thật) ======================= */
+  const aiReqs = [];
+  const toolUse = (id, name, input) => ({ type: 'tool_use', id, name, input });
+  const lastMsg = b => b.messages[b.messages.length - 1];
+  const waitAiIdle = async () => { await page.waitForFunction(() => !AI.busy, null, { timeout: 15000 }); await page.waitForTimeout(150); };
+
+  await step('Trợ lý: chưa bật API key thì báo rõ cho người dùng', async () => {
+    await closeAnyModal(page);
+    SRV.assistant = null;
+    await page.click('#aiFab');
+    assert(await page.isVisible('#aiPanel'), 'khung chat phải mở');
+    assert(await page.locator('.ai-chip').count() === 4, 'có 4 câu hỏi gợi ý');
+    await page.fill('#aiInput', 'xin chào');
+    await page.click('#aiSendBtn'); await waitAiIdle();
+    assert(/ANTHROPIC_API_KEY/.test(await page.innerText('#aiMsgs')), 'phải báo chưa cấu hình');
+    await page.click('#aiNew');
+  });
+
+  await step('Trợ lý: gọi công cụ đọc dữ liệu trong trình duyệt, gửi kết quả lên, giữ nguyên thinking block', async () => {
+    SRV.assistant = body => {
+      aiReqs.push(body);
+      const last = lastMsg(body);
+      if (Array.isArray(last.content) && last.content[0].type === 'text')
+        return { status: 200, json: { ok: true, stop_reason: 'tool_use', content: [{ type: 'thinking', thinking: '', signature: 'sig-1' }, toolUse('tu1', 'get_week_budget', {})] } };
+      return { status: 200, json: { ok: true, stop_reason: 'end_turn', content: [{ type: 'text', text: 'Tuần này **GPA**:\n- đã làm 0.9 giờ\n- còn trong kế hoạch 15 giờ' }] } };
+    };
+    await page.click('.ai-chip:has-text("Tuần này mục tiêu hạng 1")'); await waitAiIdle();
+    assert(aiReqs.length === 2, 'phải có 2 lượt gọi (câu hỏi, rồi kết quả công cụ), thấy ' + aiReqs.length);
+    const first = aiReqs[0].messages[0].content;
+    assert(/Bối cảnh tự động/.test(first[0].text) && /2026-10-07T16:00/.test(first[0].text), 'gửi kèm thời điểm hiện tại: ' + first[0].text);
+    const second = aiReqs[1].messages;
+    assert(second[1].role === 'assistant' && second[1].content[0].signature === 'sig-1', 'thinking block gửi lại nguyên văn');
+    const tr = second[2].content[0];
+    assert(tr.type === 'tool_result' && tr.tool_use_id === 'tu1' && !tr.is_error, 'kết quả công cụ đúng định dạng');
+    const data = JSON.parse(tr.content);
+    assert(data.goals.some(g => g.goal === 'GPA' && g.target_hours === 18), 'đọc đúng ngân sách GPA từ dữ liệu thật');
+    const txt = await page.innerText('#aiMsgs');
+    assert(/còn trong kế hoạch 15 giờ/.test(txt) && await page.locator('.ai-msg.ai li').count() === 2, 'hiện câu trả lời dạng danh sách');
+  });
+
+  await step('Trợ lý: đề xuất việc phát sinh bằng engine, hiện thẻ, bấm thẻ mở màn duyệt; chưa duyệt thì không đổi dữ liệu', async () => {
+    aiReqs.length = 0;
+    SRV.assistant = body => {
+      aiReqs.push(body);
+      const last = lastMsg(body);
+      if (last.content[0].type === 'text')
+        return { status: 200, json: { ok: true, stop_reason: 'tool_use', content: [toolUse('tu2', 'propose_disruption',
+          { title: 'Họp BCS tối thứ 6', duration_min: 60, priority: 5, mode: 'fixed_time', fixed_start: '2026-10-09T19:00' })] } };
+      return { status: 200, json: { ok: true, stop_reason: 'end_turn', content: [{ type: 'text', text: 'Mình đã chuẩn bị phương án, bạn bấm nút để xem và duyệt.' }] } };
+    };
+    const before = await page.evaluate(() => state.disruptions.length);
+    await page.fill('#aiInput', 'Thứ 6 19h họp BCS 1 tiếng');
+    await page.keyboard.press('Enter'); await waitAiIdle();
+    const res = JSON.parse(lastMsg(aiReqs[1]).content[0].content);
+    assert(res.ok && res.placement.start === '2026-10-09T19:00' && res.user_must_approve, 'engine tính phương án: ' + JSON.stringify(res).slice(0, 200));
+    assert(await page.locator('.ai-card').count() >= 1, 'phải có thẻ đề xuất');
+    assert(await page.evaluate(() => state.disruptions.length) === before, 'chưa duyệt thì chưa lưu gì');
+    await page.locator('.ai-card').last().locator('button').click();
+    await page.waitForSelector('#rv-approve');
+    assert(/19:00 đến 20:00/.test(await page.innerText('#rv-placement')));
+    await page.click('#rv-reject'); await idle(page);
+  });
+
+  await step('Trợ lý: lỗi công cụ (id block sai) trả về is_error để Claude tự sửa; đề xuất xếp bù mở màn bù giờ', async () => {
+    aiReqs.length = 0;
+    SRV.assistant = body => {
+      aiReqs.push(body);
+      const n = aiReqs.length;
+      if (n === 1) return { status: 200, json: { ok: true, stop_reason: 'tool_use', content: [toolUse('tu3', 'propose_makeup', { block_id: 'khong-co' })] } };
+      if (n === 2) return { status: 200, json: { ok: true, stop_reason: 'tool_use', content: [toolUse('tu4', 'propose_makeup', { block_id: 'tpl-t4-baids-2026-10-07-1' })] } };
+      return { status: 200, json: { ok: true, stop_reason: 'end_turn', content: [{ type: 'text', text: 'Bấm nút để xem đề xuất bù.' }] } };
+    };
+    await page.fill('#aiInput', 'Bài ĐS sáng nay mình làm dở, bù giúp');
+    await page.click('#aiSendBtn'); await waitAiIdle();
+    const r1 = lastMsg(aiReqs[1]).content[0];
+    assert(r1.is_error === true && /Không tìm thấy block/.test(r1.content), 'id sai phải trả lỗi cho Claude');
+    const r2 = JSON.parse(lastMsg(aiReqs[2]).content[0].content);
+    assert(r2.missed_minutes === 53 && r2.makeup_blocks.length >= 1, JSON.stringify(r2));
+    await page.locator('.ai-card').last().locator('button').click();
+    await page.waitForSelector('#rc-approve');
+    await page.click('#mCancel'); await page.waitForTimeout(300);
+  });
+
+  await step('Trợ lý: máy chủ lỗi tạm thời thì có nút Thử lại và thử lại được', async () => {
+    let n = 0;
+    SRV.assistant = () => (++n === 1 ? { status: 502, json: { ok: false, error: 'upstream_529' } }
+      : { status: 200, json: { ok: true, stop_reason: 'end_turn', content: [{ type: 'text', text: 'Đã kết nối lại.' }] } });
+    await page.fill('#aiInput', 'thử lại nhé');
+    await page.click('#aiSendBtn'); await waitAiIdle();
+    await page.click('.ai-msg button:has-text("Thử lại")'); await waitAiIdle();
+    assert(/Đã kết nối lại/.test(await page.innerText('#aiMsgs')));
+    await page.click('#aiClose');
+    assert(!(await page.isVisible('#aiPanel')), 'đóng khung chat');
+  });
+
   await step('Giao diện Lịch thông minh trên điện thoại không tràn ngang', async () => {
     const m = await context.newPage(); watch(m);
     await m.setViewportSize({ width: 390, height: 844 });
@@ -432,6 +527,10 @@ function assert(c, m) { if (!c) throw new Error('ASSERT FAILED: ' + m); }
       const w = await m.evaluate(() => document.documentElement.scrollWidth);
       assert(w <= 400, `${label}: scrollWidth=${w}`);
     }
+    await m.click('#aiFab'); await m.waitForTimeout(300);
+    const pb = await m.locator('#aiPanel').boundingBox();
+    assert(pb && pb.width <= 390 && pb.x >= 0, 'khung chat vừa màn hình điện thoại');
+    await m.click('#aiClose');
     await m.click('#tourSmartBtn'); await m.waitForTimeout(800);
     const box = await m.locator('#tourCard').boundingBox();
     assert(box && box.x >= 0 && box.x + box.width <= 390 && box.y + box.height <= 844, 'thẻ tour nằm gọn trên điện thoại');
