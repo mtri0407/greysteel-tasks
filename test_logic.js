@@ -213,9 +213,7 @@ t('Đạt đúng kỳ vọng cho verdict phù hợp', () => {
   assert.ok(/Đạt đúng kỳ vọng/.test(s.verdict), 'thấy: ' + s.verdict);
 });
 
-console.log(fails === 0 ? '\nTẤT CẢ UNIT TEST LOGIC PASS' : `\n${fails} TEST THẤT BẠI`);
-process.exit(fails === 0 ? 0 : 1);
-
+/* Test này trước đây nằm SAU process.exit nên không bao giờ chạy; đã dời lên trước. */
 t('Giai đoạn chưa đặt kỳ vọng thì báo rõ, không coi kỳ vọng là 0', () => {
   FAKE_TODAY = '2026-10-01';
   const g = { startValue: 3, targetValue: 7, unit: 'band', phases: [
@@ -227,5 +225,5 @@ t('Giai đoạn chưa đặt kỳ vọng thì báo rõ, không coi kỳ vọng l
   assert.strictEqual(s.nextSuggestion, null, 'không được gợi ý bừa khi chưa có kỳ vọng');
   assert.strictEqual(phaseEstimate(g, 0), null, 'ước chừng phải là null chứ không phải 0');
 });
-console.log(fails === 0 ? '\nTẤT CẢ UNIT TEST LOGIC PASS (lần 2)' : `\n${fails} TEST THẤT BẠI`);
+console.log(fails === 0 ? '\nTẤT CẢ UNIT TEST LOGIC PASS' : `\n${fails} TEST THẤT BẠI`);
 process.exit(fails === 0 ? 0 : 1);
