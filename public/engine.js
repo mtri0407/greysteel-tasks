@@ -390,7 +390,8 @@
 
   /* ======================= Áp dụng phương án (sau khi người dùng bấm Duyệt) ======================= */
   function makeChange(seq, nowMs, off, entity, entityId, action, before, after, cause, causeId) {
-    return { id: `chg-${nowMs}-${seq}`, entity, entityId, action, before: before || null, after: after || null,
+    /* id tất định nhưng không trùng giữa hai lần áp dụng trong cùng một mili giây */
+    return { id: `chg-${nowMs}-${causeId || cause}-${entityId}-${seq}`, entity, entityId, action, before: before || null, after: after || null,
       cause, causeId: causeId || '', createdAt: toISO(nowMs, off) };
   }
   function pick(b) { return b ? { start: b.start, end: b.end, status: b.status, type: b.type, goalId: b.goalId || '' } : null; }

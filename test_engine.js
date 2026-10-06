@@ -314,6 +314,14 @@ t('Hoà chi phí thì chọn khung sớm hơn; cấu hình trọng số đổi �
   const p2 = E.propose(base, goals, d, NOW, Object.assign({}, ctx, { config: { weights: { buffer: -1 } } }));
   assert.ok(p2.placement.bufferUsed);
 });
+t('REGRESSION: id changelog không trùng giữa hai phương án áp dụng cùng một thời điểm', () => {
+  const d1 = { id: 'a1', durationMin: 60, priority: 5, mode: 'fixed_time', fixedStart: '2026-10-06T18:00:00+07:00' };
+  const d2 = { id: 'a2', durationMin: 30, priority: 1, mode: 'fixed_time', fixedStart: '2026-10-09T09:00:00+07:00' };
+  const r1 = E.applyProposal(base, E.propose(base, goals, d1, NOW, ctx), d1, NOW, ctx);
+  const r2 = E.applyProposal(r1.blocks, E.propose(r1.blocks, goals, d2, NOW, ctx), d2, NOW, ctx);
+  const ids = r1.changes.concat(r2.changes).map(c => c.id);
+  assert.strictEqual(new Set(ids).size, ids.length, 'trùng id: ' + ids.join(', '));
+});
 t('Không đặt việc vào quá khứ', () => {
   const d = { id: 'past', durationMin: 30, priority: 5, mode: 'flexible', windowStart: '2026-10-06T16:00:00+07:00', windowEnd: '2026-10-06T17:00:00+07:00' };
   const p = E.propose(base, goals, d, '2026-10-06T16:20:00+07:00', ctx);
