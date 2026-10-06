@@ -210,6 +210,54 @@ t('KB6: check-in "Bỏ, mệt" block GPA 13:30 thứ 4 có 2 task -> task về h
   assert.strictEqual(g.missedMin, 90);
 });
 
+/* ======================= Xếp bù ======================= */
+t('Xếp bù: block 90 phút bị Bỏ -> 2 block bù (50 + 40) sớm nhất trong tuần, ưu tiên khung đệm', () => {
+  const blockId = 'tpl-t4-gtton-2026-10-07-1';
+  const now = '2026-10-07T15:30:00+07:00';
+  const ck = E.applyCheckin(base, [], { id: 'c', blockId, result: 'skipped', reasonCode: 'tired' }, now, ctx);
+  const mk = E.proposeMakeup(byId(ck.blocks, blockId), 0, ck.blocks, goals, now, ctx);
+  assert.strictEqual(mk.missedMin, 90);
+  eq(mk.placed.map(p => p.minutes), [50, 40]);
+  assert.strictEqual(mk.unplacedMin, 0);
+  assert.strictEqual(mk.placed[0].start, '2026-10-07T18:00:00+07:00', 'khung đệm tối thứ 4 trước tiên');
+  assert.strictEqual(mk.placed[0].via, 'buffer');
+  mk.placed.forEach(p => {
+    assert.ok(P(p.start) >= P(now) && P(p.end) <= P('2026-10-12T00:00:00+07:00'), 'trong tuần, sau bây giờ');
+    assert.ok(!inSleep(p), 'không vào giờ ngủ');
+    ck.blocks.filter(b => E.isActive(b) && b.type !== 'buffer').forEach(b => assert.ok(!overlaps(p, b), 'không đè block ' + b.id));
+  });
+  assert.ok(!overlaps(mk.placed[0], mk.placed[1]));
+});
+t('Xếp bù: áp dụng tạo block bù, việc theo sang, ngân sách dự kiến được bù lại', () => {
+  const blockId = 'tpl-t4-gtton-2026-10-07-1';
+  const now = '2026-10-07T15:30:00+07:00';
+  const tasks = [{ id: 'a', title: 'GT 12', status: 'todo', blockId }, { id: 'b', title: 'GT 13', status: 'todo', blockId }];
+  const ck = E.applyCheckin(base, tasks, { id: 'c', blockId, result: 'skipped', reasonCode: 'tired' }, now, ctx);
+  const before = gpa(E.weekBudget(ck.blocks, goals, [ck.checkin], WEEK, now, ctx));
+  const mk = E.proposeMakeup(byId(ck.blocks, blockId), 0, ck.blocks, goals, now, ctx);
+  const r = E.applyMakeup(ck.blocks, ck.tasks, mk, ck.returnedTasks.map(x => x.id), now, ctx);
+  assert.strictEqual(r.created.length, 2);
+  assert.ok(r.created.every(b => b.source === 'makeup' && b.makeupFor === blockId && b.goalId === 'goal-gpa' && b.label.startsWith('Bù: ')));
+  assert.ok(r.tasks.every(x => x.blockId === r.created[0].id), 'việc đi theo block bù đầu tiên');
+  const after = gpa(E.weekBudget(r.blocks, goals, [ck.checkin], WEEK, now, ctx));
+  assert.strictEqual(after.projectedMin - before.projectedMin, 90, 'dự kiến tăng đúng 90 phút đã bù');
+  const again = E.applyMakeup(r.blocks, r.tasks, mk, [], now, ctx);
+  assert.strictEqual(again.blocks.length, r.blocks.length, 'áp dụng lại không tạo trùng');
+});
+t('Xếp bù: làm được 90% block 45 phút thì phần thiếu quá ngắn, không đề xuất', () => {
+  const b = byId(base, 'tpl-t2-truocgt-2026-10-05-1');
+  const mk = E.proposeMakeup(b, 0.9, base, goals, '2026-10-05T21:00:00+07:00', ctx);
+  assert.ok(mk.tooShort); assert.strictEqual(mk.placed.length, 0);
+});
+t('Xếp bù: hết chỗ trong tuần thì báo số phút không xếp được', () => {
+  const now = '2026-10-11T20:00:00+07:00'; // tối Chủ nhật, chỉ còn tới 23:00 là giờ ngủ
+  const wall = { id: 'wall', type: 'fixed', start: '2026-10-11T20:00:00+07:00', end: '2026-10-11T23:00:00+07:00', status: 'planned' };
+  const b = byId(base, 'tpl-cn-nhe-2026-10-11-1');
+  const mk = E.proposeMakeup(b, 0, base.concat([wall]), goals, now, ctx);
+  assert.strictEqual(mk.placed.length, 0);
+  assert.strictEqual(mk.unplacedMin, mk.missedMin);
+});
+
 /* ======================= Luật cứng ======================= */
 t('Luật cứng: không đặt việc vào giờ ngủ (giờ cố định)', () => {
   const d = { id: 'x', durationMin: 30, priority: 1, mode: 'fixed_time', fixedStart: '2026-10-06T22:30:00+07:00' };

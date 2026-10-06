@@ -557,6 +557,65 @@
     return { placed, unplaced };
   }
 
+  /* ======================= Xếp bù block bị bỏ / làm dở =======================
+     Phần thời gian chưa làm được (thời lượng x (1 - tỷ lệ hoàn thành)) được chia thành các
+     block bù dài tối đa unitMin phút, xếp sớm nhất có thể từ `now` tới hết tuần của block
+     (hoặc tới opts.until). Thứ tự chỗ giống khi dời block: khung đệm trống, rồi khoảng trống
+     cùng năng lượng, rồi khoảng trống bất kỳ. Chỉ là đề xuất, áp dụng bằng applyMakeup(). */
+  function proposeMakeup(block, completedRatio, blocks, goals, now, ctx, opts) {
+    const { cfg, off, sleepRules } = makeCtx(ctx);
+    opts = opts || {};
+    const nowMs = parseTime(now, off);
+    const s = parseTime(block.start, off), e = parseTime(block.end, off);
+    const missedMin = Math.round((e - s) / MIN * (1 - clampRatio(completedRatio)));
+    const out = { blockId: block.id, goalId: block.goalId || '', energy: block.energy || '', label: block.label || '',
+      missedMin, placed: [], unplacedMin: 0 };
+    if (missedMin < 15) { out.unplacedMin = 0; out.tooShort = true; return out; }
+    let hi = opts.until ? parseDeadline(opts.until, off) : weekRange(weekStartYmd(s, off), off).e;
+    if (hi <= nowMs) hi = weekRange(weekStartYmd(nowMs, off), off).e;
+    const items = itemsOf(blocks, off);
+    const busy = []; items.forEach(it => { if (it.b.type !== 'buffer') busy.push({ s: it.s, e: it.e }); });
+    sleepIntervals(sleepRules, nowMs - DAY, hi + DAY, off).forEach(z => busy.push(z));
+    const bufferItems = items.filter(it => it.b.type === 'buffer');
+    // Chia phần thiếu thành các khúc tối đa unitMin, làm tròn 5 phút, khúc cuối tối thiểu 15 phút
+    const chunks = []; let left = Math.round(missedMin / 5) * 5;
+    while (left > 0) { const c = Math.min(cfg.unitMin, left); if (c < 15 && chunks.length) { chunks[chunks.length - 1] += c; break; } chunks.push(Math.max(15, c)); left -= c; }
+    chunks.forEach(c => {
+      const home = findHome(c * MIN, nowMs, hi, nowMs, block.energy, busy, bufferItems, off, cfg);
+      if (!home) { out.unplacedMin += c; return; }
+      busy.push({ s: home.s, e: home.e });
+      out.placed.push({ start: toISO(home.s, off), end: toISO(home.e, off), minutes: c, via: home.via });
+    });
+    return out;
+  }
+  /* Áp dụng đề xuất xếp bù: tạo block bù (source = makeup) và đưa các việc vừa quay về
+     hàng chờ vào block bù đầu tiên (giống block gốc chứa chúng). */
+  function applyMakeup(blocks, tasks, makeup, taskIds, now, ctx) {
+    const { off } = makeCtx(ctx);
+    const nowMs = parseTime(now, off), nowIso = toISO(nowMs, off);
+    const changes = []; let seq = 0;
+    const created = (makeup.placed || []).map((p, i) => ({
+      id: `blk-bu-${makeup.blockId}-${i + 1}`, templateId: '', start: p.start, end: p.end, type: 'flexible',
+      goalId: makeup.goalId || '', energy: makeup.energy || '', label: 'Bù: ' + (makeup.label || 'block'),
+      status: 'planned', source: 'makeup', makeupFor: makeup.blockId, deadline: '', gcalEventId: '', updatedAt: nowIso,
+    }));
+    const have = new Set((blocks || []).map(b => b.id));
+    const outBlocks = (blocks || []).slice();
+    created.forEach(b => {
+      if (have.has(b.id)) return;
+      outBlocks.push(b);
+      changes.push(makeChange(++seq, nowMs, off, 'block', b.id, 'create', null, pick(b), 'user_edit', 'makeup:' + makeup.blockId));
+    });
+    const ids = new Set(taskIds || []);
+    const target = created[0];
+    const outTasks = (tasks || []).map(t => {
+      if (!target || !ids.has(t.id)) return t;
+      changes.push(makeChange(++seq, nowMs, off, 'task', t.id, 'assign', { blockId: t.blockId || '' }, { blockId: target.id }, 'user_edit', 'makeup:' + makeup.blockId));
+      return Object.assign({}, t, { blockId: target.id, updatedAt: nowIso });
+    });
+    return { blocks: outBlocks, tasks: outTasks, created, changes };
+  }
+
   /* ======================= Ngân sách tuần thực tế ======================= */
   function weekBudget(blocks, goals, checkins, weekMondayYmd, now, ctx) {
     const { cfg, off } = makeCtx(ctx);
@@ -683,7 +742,7 @@
 
   return {
     ENGINE_CONFIG, propose, applyProposal, generateWeekBlocks, checkinQueue, markStaleUnknown, applyCheckin,
-    proposeTaskSlots, weekBudget, plannedBudget: (blocks, goals, weekYmd, ctx) => { const c = makeCtx(ctx); return plannedBudget(blocks, goals, weekYmd, c.off, c.cfg); },
+    proposeTaskSlots, proposeMakeup, applyMakeup, weekBudget, plannedBudget: (blocks, goals, weekYmd, ctx) => { const c = makeCtx(ctx); return plannedBudget(blocks, goals, weekYmd, c.off, c.cfg); },
     weekStats, emptyBuffersAt, findConflicts, founderSeed, placementBlockId,
     // tiện ích thời gian (dùng chung cho giao diện và test)
     time: { parseTime, parseDeadline, toISO, localParts, localToMs, addDaysYmd, weekStartYmd, sleepIntervals, endOfLocalDay },

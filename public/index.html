@@ -2585,6 +2585,7 @@ function blockCard(b, conflict){
   if(ended && b.status==='planned' && ['flexible','protected'].includes(b.type) && !state.checkins.some(x=>x.blockId===b.id)){
     const ci=el('button',null,'Check-in'); ci.onclick=()=>openCheckinModal([b]); acts.appendChild(ci);
   }
+  if(canMakeup(b)){ const mu=el('button',null,'Xếp bù'); mu.onclick=()=>openRecoveryModal([{blockId:b.id, ratio:ratioOf(b)}], []); acts.appendChild(mu); }
   if(b.source!=='external' && GSEngine.isActive(b)){
     if(b.type!=='fixed' && b.type!=='buffer'){ const as=el('button',null,'Gán việc'); as.onclick=()=>openAssignModal(b); acts.appendChild(as); }
     const ed=el('button',null,'Sửa'); ed.onclick=()=>openBlockModal(b); acts.appendChild(ed);
@@ -2767,12 +2768,12 @@ function openReviewModal(d, p){
 /* ---------- Hàng chờ check-in ---------- */
 function openCheckinModal(onlyBlocks){
   let queue=(onlyBlocks||checkinDue()).slice();
-  let returned=[];
+  let returned=[], missed=[];
   const body=$('#modalBody');
   const draw=()=>{
     queue=queue.filter(b=>{ const cur=state.blocks.find(x=>x.id===b.id); return cur && cur.status==='planned' && !state.checkins.some(c=>c.blockId===b.id); });
     if(!queue.length){
-      if(returned.length) return openTaskSlotsModal(returned);
+      if(returned.length||missed.length) return openRecoveryModal(missed, returned);
       closeModal(); softRefresh(); return;
     }
     body.innerHTML=`<h2>Check-in ✅</h2><div class="subtle">Block đã kết thúc. Bạn làm được tới đâu?</div>`+
@@ -2781,7 +2782,7 @@ function openCheckinModal(onlyBlocks){
         <div class="ci-btns"><button class="btn btn-primary btn-sm" data-r="done">Xong</button><button class="btn btn-ghost btn-sm" data-r="partial">Một phần</button><button class="btn btn-ghost btn-sm" data-r="skipped">Bỏ</button></div>
         <div class="ci-more" style="display:none;"></div></div>`).join('')+
       `<div class="modal-actions"><button class="btn btn-ghost" id="mCancel">Để sau</button></div>`;
-    $m('#mCancel').onclick=()=>{ if(returned.length) return openTaskSlotsModal(returned); closeModal(); softRefresh(); };
+    $m('#mCancel').onclick=()=>{ if(returned.length||missed.length) return openRecoveryModal(missed, returned); closeModal(); softRefresh(); };
     $$('#modalBody .ci-item').forEach(item=>{
       const b=queue.find(x=>x.id===item.dataset.ci);
       $$('button[data-r]', item).forEach(btn=>btn.onclick=()=>{
@@ -2795,6 +2796,7 @@ function openCheckinModal(onlyBlocks){
         $('.ci-save',more).onclick=()=>{
           const ratio=r==='partial'?Number($('.ci-ratio',more).value):0;
           returned.push(...doCheckin(b, r, ratio, $('.ci-reason',more).value, $('.ci-note',more).value));
+          missed.push({blockId:b.id, ratio});
           draw();
         };
       });
@@ -2802,6 +2804,53 @@ function openCheckinModal(onlyBlocks){
   };
   $('#modalBg').classList.add('show');
   draw();
+}
+/* ---------- Xếp bù ----------
+   Block bị Bỏ, làm Một phần hoặc quá hạn check-in (chưa rõ) có thể được bù trong tuần.
+   Việc của block được đưa sang block bù đầu tiên; việc còn lại thì đề xuất chỗ riêng. */
+function ratioOf(b){ const c=state.checkins.find(x=>x.blockId===b.id && !x.deletedAt); return c? Number(c.completedRatio)||0 : 0; }
+function canMakeup(b){
+  return !b.deletedAt && ['skipped','partial','unknown'].includes(b.status) && !!b.goalId && b.type!=='fixed' && b.type!=='buffer'
+    && !state.blocks.some(x=>x.makeupFor===b.id && !x.deletedAt) && tms(b.end) > Date.now()-7*86400000;
+}
+function openRecoveryModal(missed, returned){
+  let tmp=state.blocks.slice();
+  const plans=[];
+  (missed||[]).forEach(m=>{
+    const b=state.blocks.find(x=>x.id===m.blockId); if(!b || !b.goalId) return;
+    const mk=GSEngine.proposeMakeup(b, m.ratio, tmp, state.goals, nowIso(), smartCtx());
+    if(mk.tooShort) return;
+    plans.push(mk);
+    tmp=GSEngine.applyMakeup(tmp, [], mk, [], nowIso(), smartCtx()).blocks;
+  });
+  const covered=new Set(plans.filter(p=>p.placed.length).map(p=>p.blockId));
+  const rest=(returned||[]).filter(t=>!covered.has(t.lastBlockId));
+  const ts=rest.length? GSEngine.proposeTaskSlots(rest, tmp, state.goals, nowIso(), smartCtx()) : {placed:[], unplaced:[]};
+  if(!plans.length && !rest.length){ closeModal(); softRefresh(); return; }
+  const body=$('#modalBody');
+  body.innerHTML=`<h2>Bù giờ và xếp lại việc 🔁</h2>
+    <div class="subtle">Engine đề xuất block bù sớm nhất trong tuần (khung đệm trước, rồi khoảng trống cùng năng lượng). Bạn duyệt thì mới áp dụng.</div>
+    ${plans.map(p=>`<div class="rv-section mk-plan"><h3>Bù ${p.missedMin} phút cho "${esc(p.label)}" ${p.goalId?'· '+esc(goalTitle(p.goalId)):''}</h3>
+      ${p.placed.map(x=>`<div class="rv-row mk-row"><span>${fmtSlot(x.start,x.end)}</span><span class="subtle">${x.minutes} phút · ${VIA_LABEL[x.via]||x.via}</span></div>`).join('')}
+      ${p.unplacedMin?`<div class="rv-row rv-lost"><span>Không còn chỗ trong tuần cho ${p.unplacedMin} phút</span><span>mục tiêu sẽ hụt</span></div>`:''}
+      ${p.placed.length && (returned||[]).some(t=>t.lastBlockId===p.blockId)?'<div class="subtle">Việc của block này sẽ chuyển sang block bù đầu tiên.</div>':''}</div>`).join('')}
+    ${rest.length?`<div class="rv-section"><h3>Việc chờ xếp</h3>${ts.placed.map(s=>`<div class="rv-row ts-row"><span>${esc(s.title)}</span><strong>${fmtSlot(s.start,s.end)}</strong></div>`).join('')}
+      ${ts.unplaced.map(t=>`<div class="rv-row rv-lost"><span>${esc(t.title)}</span><span>không còn chỗ trong hạn</span></div>`).join('')}</div>`:''}
+    <div class="modal-actions"><button class="btn btn-ghost" id="mCancel">Để sau</button><button class="btn btn-primary" id="rc-approve">Duyệt tất cả</button></div>`;
+  $('#modalBg').classList.add('show');
+  $m('#mCancel').onclick=()=>{ closeModal(); softRefresh(); };
+  $m('#rc-approve').onclick=()=>{
+    const ids=[];
+    plans.forEach(p=>{
+      if(!p.placed.length) return;
+      const taskIds=(returned||[]).filter(t=>t.lastBlockId===p.blockId).map(t=>t.id);
+      const r=GSEngine.applyMakeup(state.blocks, state.tasks, p, taskIds, nowIso(), smartCtx());
+      state.blocks=r.blocks; state.tasks=r.tasks; logChanges(r.changes); r.created.forEach(b=>ids.push(b.id));
+    });
+    scheduleSave(); syncBlocksOut(ids);
+    if(ts.placed.length) approveTaskSlots(ts.placed);
+    closeModal(); softRefresh(); toast('Đã xếp bù vào lịch 🔁');
+  };
 }
 /* Task vừa quay về hàng chờ: engine đề xuất chỗ mới trong hạn, người dùng duyệt */
 function openTaskSlotsModal(tasks){

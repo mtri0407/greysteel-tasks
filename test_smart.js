@@ -287,19 +287,22 @@ function assert(c, m) { if (!c) throw new Error('ASSERT FAILED: ' + m); }
     await item.locator('button[data-r="skipped"]').click();
     await item.locator('.ci-reason').selectOption('tired');
     await item.locator('.ci-save').click();
-    await page.click('#mCancel'); // để sau phần còn lại -> sang đề xuất xếp lại
-    await page.waitForSelector('#ts-approve');
-    const rows = await page.locator('.ts-row').allInnerTexts();
-    assert(rows.length === 2, 'đề xuất chỗ cho 2 việc: ' + rows.join(' | '));
-    assert(/18:00/.test(rows[0]), 'việc đầu vào khung đệm tối thứ 4: ' + rows[0]);
-    await page.click('#ts-approve'); await idle(page);
+    await page.click('#mCancel'); // để sau phần còn lại -> sang màn bù giờ và xếp lại việc
+    await page.waitForSelector('#rc-approve');
+    const rows = await page.locator('.mk-row').allInnerTexts();
+    assert(rows.length === 2, 'bù 90 phút thành 2 block: ' + rows.join(' | '));
+    assert(/18:00/.test(rows[0]) && /50 phút/.test(rows[0]), 'block bù đầu vào khung đệm tối thứ 4: ' + rows[0]);
+    assert(/40 phút/.test(rows[1]), rows[1]);
+    assert(/Bù 90 phút/.test(await page.innerText('.mk-plan h3')));
+    await page.click('#rc-approve'); await idle(page);
     const d = G.data();
     const ck = d.checkins.find(c => c.blockId === 'tpl-t4-gtton-2026-10-07-1');
     assert(ck && ck.result === 'skipped' && ck.reasonCode === 'tired' && ck.completedRatio === 0, 'check-in phải lưu đủ');
     assert(d.blocks.find(b => b.id === 'tpl-t4-gtton-2026-10-07-1').status === 'skipped');
     const ts = d.tasks.filter(t => /^GT Câu 1[23]/.test(t.title));
-    assert(ts.every(t => t.blockId && t.blockId !== 'tpl-t4-gtton-2026-10-07-1'), 'việc đã được xếp vào block mới');
-    assert(ts.every(t => d.blocks.find(b => b.id === t.blockId).gcalEventId), 'block mới lên Calendar');
+    const bu = d.blocks.filter(b => b.makeupFor === 'tpl-t4-gtton-2026-10-07-1');
+    assert(bu.length === 2 && bu.every(b => b.source === 'makeup' && b.gcalEventId), 'có 2 block bù, đã lên Calendar');
+    assert(ts.every(t => t.blockId === bu[0].id), 'việc chuyển sang block bù đầu tiên');
   });
 
   await step('Check-in một phần 50% từ thẻ block, lý do mất tập trung', async () => {
@@ -313,6 +316,13 @@ function assert(c, m) { if (!c) throw new Error('ASSERT FAILED: ' + m); }
     await item.locator('.ci-save').click(); await idle(page);
     const ck = G.data().checkins.find(c => c.blockId === 'tpl-t4-baids-2026-10-07-1');
     assert(ck.result === 'partial' && ck.completedRatio === 0.5 && ck.reasonCode === 'distracted');
+    // Làm dở 50% của 105 phút: đề xuất bù khoảng 55 phút; bấm Để sau thì chưa có gì thay đổi
+    assert(await page.isVisible('#rc-approve'), 'phải đề xuất xếp bù');
+    assert(/Bù 53 phút/.test(await page.innerText('.mk-plan h3')), await page.innerText('.mk-plan h3'));
+    await page.click('#mCancel'); await idle(page);
+    assert(!G.data().blocks.some(b => b.makeupFor === 'tpl-t4-baids-2026-10-07-1'), 'Để sau thì không tạo block bù');
+    await nav(page, 'Lịch thông minh');
+    assert(await page.locator('.blk[data-block-id="tpl-t4-baids-2026-10-07-1"] button:has-text("Xếp bù")').count() === 1, 'thẻ block có nút Xếp bù');
   });
 
   await step('Màn hình ngân sách tuần: thanh theo mục tiêu xếp theo hạng, block bỏ không cộng vào đã làm', async () => {
