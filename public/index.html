@@ -232,6 +232,48 @@
   .empty{color:var(--text-soft);font-size:13px;text-align:center;padding:26px 10px;}
   .banner{background:var(--orange-50);border:1px solid var(--orange-200);border-radius:var(--radius-md);padding:14px 16px;margin-bottom:16px;font-size:13.5px;}
   [data-theme="dark"] .banner{background:#332616;border-color:#5a3f1c;}
+
+  /* ---------- Lịch thông minh ---------- */
+  .sch-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;}
+  .sch-tabs .btn.on{background:var(--orange-500);color:#fff;}
+  .sch-head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
+  .sch-actions{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;}
+  .week-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:10px;}
+  @media(max-width:1100px){.week-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
+  @media(max-width:600px){.week-grid{grid-template-columns:minmax(0,1fr);}}
+  .day-col{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:10px;min-width:0;}
+  .day-col.today{border-color:var(--orange-400);box-shadow:0 0 0 2px var(--orange-100);}
+  .day-col h4{margin:0 0 8px;font-size:13px;}
+  .blk{border-radius:10px;padding:7px 9px;margin-bottom:7px;font-size:12px;border-left:4px solid var(--orange-400);background:var(--surface-2);overflow-wrap:anywhere;}
+  .blk .blk-time{font-weight:800;font-size:11.5px;}
+  .blk .blk-label{font-weight:700;margin-top:1px;}
+  .blk .blk-meta{color:var(--text-soft);font-size:11px;margin-top:2px;}
+  .blk .blk-acts{display:flex;gap:4px;flex-wrap:wrap;margin-top:5px;}
+  .blk .blk-acts button{border:none;background:var(--surface);color:var(--text);border-radius:999px;padding:2px 8px;font-size:11px;font-weight:700;}
+  .blk.t-fixed{border-left-color:#7d8590;}
+  .blk.t-protected{border-left-color:var(--danger);}
+  .blk.t-flexible{border-left-color:var(--leaf-500);}
+  .blk.t-buffer{border-left-color:#e3b31c;background:repeating-linear-gradient(135deg,var(--surface-2),var(--surface-2) 8px,var(--surface) 8px,var(--surface) 16px);}
+  .blk.s-done{opacity:.6;} .blk.s-skipped,.blk.s-moved{opacity:.45;text-decoration:line-through;}
+  .blk.conflict{outline:2px dashed var(--danger);}
+  .blk-task{font-size:11px;margin-top:3px;padding-left:6px;border-left:2px solid var(--border);}
+  .type-badge{font-size:10px;font-weight:800;padding:1px 6px;border-radius:999px;background:var(--orange-100);color:var(--orange-700);}
+  [data-theme="dark"] .type-badge{background:#4a3520;color:var(--orange-200);}
+  .alert-card{border-color:var(--danger);}
+  .rv-section{margin-top:14px;}
+  .rv-section h3{font-size:14px;margin:0 0 6px;}
+  .rv-row{display:flex;justify-content:space-between;gap:8px;font-size:12.5px;padding:6px 0;border-bottom:1px dashed var(--border);flex-wrap:wrap;}
+  .rv-lost{color:var(--danger);font-weight:700;}
+  .budget-row{margin:10px 0 14px;}
+  .budget-row .bt{display:flex;justify-content:space-between;gap:8px;font-size:13px;flex-wrap:wrap;}
+  .stack-track{position:relative;height:14px;border-radius:999px;background:var(--surface-2);overflow:hidden;margin-top:6px;}
+  .stack-done{position:absolute;left:0;top:0;bottom:0;background:var(--orange-500);}
+  .stack-plan{position:absolute;top:0;bottom:0;background:var(--orange-200);}
+  .stack-target{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--steel-900);}
+  [data-theme="dark"] .stack-target{background:#fff;}
+  .ci-item{border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;margin-top:10px;}
+  .ci-item .ci-btns{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
+  .tbl-wrap{overflow-x:auto;}
   .toast-wrap{position:fixed;bottom:18px;right:18px;display:flex;flex-direction:column;gap:8px;z-index:100;pointer-events:none;}
   @media(max-width:600px){.toast-wrap{left:14px;right:14px;bottom:14px;align-items:stretch;}}
   .toast{background:var(--steel-900);color:#fff;padding:11px 17px;border-radius:var(--radius-sm);font-size:13px;
@@ -353,6 +395,10 @@
 <div class="modal-bg" id="modalBg"><div class="modal" id="modalBody"></div></div>
 <div class="toast-wrap" id="toastWrap"></div>
 
+<!-- Lịch thông minh: logic thuần nằm ở file riêng (chạy được cả trong Node để test) -->
+<script src="/datastore.js"></script>
+<script src="/engine.js"></script>
+<script src="/calsync.js"></script>
 <script>
 /* ======================= CONFIG ======================= */
 /* 1) Tạo OAuth Client ID trên Google Cloud Console (xem HUONG_DAN.md) và dán vào đây.
@@ -394,6 +440,8 @@ const VIEWS = [
   {id:'planner', label:'Lộ trình mục tiêu', icon:'🎯'},
   {id:'matrix', label:'Ma trận ưu tiên', icon:'🍊'},
   {id:'calendar', label:'Lịch', icon:'📅'},
+  {id:'schedule', label:'Lịch thông minh', icon:'🗓️'},
+  {id:'budget', label:'Ngân sách tuần', icon:'⏱️'},
   {id:'list', label:'Danh sách việc', icon:'📋'},
   {id:'people', label:'Ngày đặc biệt', icon:'🎂'},
   {id:'notes', label:'Ghi chú vặt', icon:'📝'},
@@ -440,6 +488,12 @@ let state = {
   notified: new Set(),
   planner: {level:'list', goalId:null, phaseId:null},
   listFilter: {q:'', status:'', quadrant:''},
+  /* Lịch thông minh (lưu lên Drive, xem public/datastore.js) */
+  settings: GSData.defaultSettings(), blockTemplates: [], blocks: [], disruptions: [], checkins: [],
+  calendarSync: {syncToken:'', lastSyncAt:''}, changelogOutbox: [],
+  /* chỉ dùng lúc chạy */
+  driveVersion: null, baseSnapshot: null, extraData: {}, pendingBackup: null, changelogFileIds: {},
+  schedule: {weekStart:null, tab:'week'},
 };
 
 /* ======================= UTIL ======================= */
@@ -559,9 +613,11 @@ async function onSignedIn(){
   await loadFromDrive();
   if(!state.profile.name) state.profile.name = state.google.name || 'Bạn';
   renderAll();
-  setInterval(checkReminders, 5*60*1000);
+  if(!remindersStarted){ remindersStarted=true; setInterval(checkReminders, 5*60*1000); }
   checkReminders();
+  smartOnOpen();
 }
+let remindersStarted=false;
 async function signOut(){
   try{ await fetch('/.netlify/functions/logout', {method:'POST', credentials:'same-origin'}); }catch(e){}
   state.google = {signedIn:false, accessToken:null, tokenExpiry:0, email:'', name:'', picture:''};
@@ -587,32 +643,89 @@ async function initAuth(){
 }
 
 /* ======================= DRIVE STORAGE (appDataFolder) ======================= */
-async function driveFindFile(){
+async function driveFindFile(name){
   const token = await ensureToken();
-  const url = `${DRIVE_FILES}?spaces=appDataFolder&q=${encodeURIComponent("name='"+DATA_FILE_NAME+"'")}&fields=files(id,name)`;
+  const url = `${DRIVE_FILES}?spaces=appDataFolder&q=${encodeURIComponent("name='"+(name||DATA_FILE_NAME)+"'")}&fields=files(id,name,version)`;
   const res = await fetch(url, {headers:{Authorization:'Bearer '+token}});
   if(!res.ok) throw new Error('drive_list_failed_'+res.status);
   const j = await res.json();
   return (j.files && j.files[0]) || null;
 }
+async function driveReadText(fileId){
+  const token = await ensureToken();
+  const res = await fetch(`${DRIVE_FILES}/${fileId}?alt=media`, {headers:{Authorization:'Bearer '+token}});
+  if(!res.ok) throw new Error('drive_read_failed_'+res.status);
+  return await res.text();
+}
+async function driveGetVersion(fileId){
+  const token = await ensureToken();
+  const res = await fetch(`${DRIVE_FILES}/${fileId}?fields=version`, {headers:{Authorization:'Bearer '+token}});
+  if(!res.ok) throw new Error('drive_meta_failed_'+res.status);
+  const j = await res.json();
+  return j.version!==undefined ? String(j.version) : null;
+}
+/* Tạo file mới trong appDataFolder, trả về {id, version} */
+async function driveCreateFile(name, text){
+  const token = await ensureToken();
+  const boundary='greysteel_bnd_'+Date.now();
+  const metadata = {name, parents:['appDataFolder']};
+  const body =
+    `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n`+
+    `--${boundary}\r\nContent-Type: application/json\r\n\r\n${text}\r\n--${boundary}--`;
+  const res = await fetch(`${DRIVE_UPLOAD}?uploadType=multipart&fields=id,version`, {
+    method:'POST', headers:{Authorization:'Bearer '+token,'Content-Type':`multipart/related; boundary=${boundary}`}, body,
+  });
+  if(!res.ok) throw new Error('drive_create_failed_'+res.status);
+  const j = await res.json();
+  if(!j.id) throw new Error('drive_create_no_id');
+  return {id:j.id, version: j.version!==undefined ? String(j.version) : null};
+}
+async function driveUpdateFile(fileId, text){
+  const token = await ensureToken();
+  const res = await fetch(`${DRIVE_UPLOAD}/${fileId}?uploadType=media&fields=id,version`, {
+    method:'PATCH', headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'}, body: text,
+  });
+  if(!res.ok) throw new Error('drive_save_failed_'+res.status);
+  const j = await res.json().catch(()=>({}));
+  return {version: j.version!==undefined ? String(j.version) : null};
+}
+/* Chuẩn hoá dữ liệu đọc từ Drive (bản cũ hay mới đều được): migrate rồi chuẩn hoá từng mục
+   như app vẫn làm. Dùng chung cho lần tải đầu và cho bản đọc lại khi gộp hai thiết bị. */
+function normalizeData(raw){
+  const m = GSData.migrateState(raw);
+  const d = m.data;
+  d.tasks = d.tasks.map(normTask);
+  d.goals = d.goals.map(normGoal);
+  d.profile = Object.assign({avatarEmoji:'🍊', notificationsEnabled:true}, d.profile||{});
+  return {data:d, migrated:m.migrated, fromVersion:m.fromVersion};
+}
+function applyData(d){
+  GSData.ARRAY_KEYS.forEach(k=>{ state[k] = d[k]||[]; });
+  state.profile = d.profile||{};
+  state.settings = Object.assign(GSData.defaultSettings(), d.settings||{});
+  state.calendarSync = Object.assign({syncToken:'', lastSyncAt:''}, d.calendarSync||{});
+  state.extraData = GSData.extraKeysOf(d);
+  if(state.profile.theme==='dark'||state.profile.theme==='light') state.theme=state.profile.theme;
+}
+function persistPayload(){ return GSData.buildPayload(state, state.extraData); }
 /* An toàn dữ liệu: chỉ cho phép GHI khi đã ĐỌC thành công. Nếu Drive lỗi tạm thời
    (mạng chập chờn, 401/429/500), app tuyệt đối không được coi như "chưa có dữ liệu"
    rồi ghi đè file thật bằng dữ liệu rỗng. */
 async function loadFromDrive(){
   try{
     const file = await driveFindFile();
-    if(!file){ state.driveFileId=null; state.dataLoaded=true; return; }
-    const token = await ensureToken();
-    const res = await fetch(`${DRIVE_FILES}/${file.id}?alt=media`, {headers:{Authorization:'Bearer '+token}});
-    if(!res.ok) throw new Error('drive_read_failed_'+res.status);
-    const data = await res.json();
-    state.tasks = (data.tasks||[]).map(normTask);
-    state.people = data.people||[];
-    state.notes = data.notes||[];
-    state.goals = (data.goals||[]).map(normGoal);
-    state.profile = Object.assign({avatarEmoji:'🍊', notificationsEnabled:true}, data.profile||{});
-    if(state.profile.theme==='dark'||state.profile.theme==='light') state.theme=state.profile.theme;
+    if(!file){ state.driveFileId=null; state.driveVersion=null; state.baseSnapshot=null; state.dataLoaded=true; return; }
+    const version = await driveGetVersion(file.id);
+    const text = await driveReadText(file.id);
+    const raw = JSON.parse(text||'{}');
+    const n = normalizeData(raw);
+    applyData(n.data);
+    /* File cũ (chưa có schemaVersion): trước lần ghi đầu tiên phải lưu nguyên bản gốc
+       thành một file backup riêng trong appDataFolder (xem ensureBackup). */
+    state.pendingBackup = n.migrated ? {text, fromVersion:n.fromVersion} : null;
     state.driveFileId = file.id;
+    state.driveVersion = version;
+    state.baseSnapshot = GSData.clone(persistPayload());
     state.dataLoaded = true;
   }catch(e){
     state.dataLoaded = false;   // khoá ghi để không phá dữ liệu cũ
@@ -632,29 +745,34 @@ async function saveToDrive(){
   if(!state.dataLoaded) return;
   if(saveInFlight){ savePendingAgain=true; return; } // tránh 2 lần ghi chồng nhau
   saveInFlight=true;
+  let flushAfter=false;
   try{
-    const token = await ensureToken();
-    const payload = JSON.stringify({tasks:state.tasks, people:state.people, notes:state.notes, goals:state.goals, profile:state.profile});
+    await ensureToken();
+    if(state.pendingBackup) await ensureBackup();
     if(state.driveFileId){
-      const res = await fetch(`${DRIVE_UPLOAD}/${state.driveFileId}?uploadType=media`, {
-        method:'PATCH', headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'}, body: payload,
-      });
-      if(!res.ok) throw new Error('drive_save_failed_'+res.status);
+      /* Chống ghi đè giữa hai thiết bị: nếu file trên Drive đã đổi version kể từ lần tải,
+         đọc lại, gộp theo id (updatedAt mới hơn thắng) rồi mới ghi. */
+      const remoteVer = await driveGetVersion(state.driveFileId);
+      if(remoteVer && state.driveVersion && remoteVer!==state.driveVersion){
+        const remote = normalizeData(JSON.parse(await driveReadText(state.driveFileId)||'{}')).data;
+        const merged = GSData.mergeStates(state.baseSnapshot||{}, persistPayload(), GSData.buildPayload(remote, GSData.extraKeysOf(remote)));
+        applyData(merged);
+        state.driveVersion = remoteVer;
+        toast('Đã gộp thay đổi từ thiết bị khác 🔄');
+        safeSoftRefresh();
+      }
+      const payload = persistPayload();
+      const r = await driveUpdateFile(state.driveFileId, JSON.stringify(payload));
+      state.driveVersion = r.version || state.driveVersion;
+      state.baseSnapshot = GSData.clone(payload);
     } else {
-      const boundary='greysteel_bnd_'+Date.now();
-      const metadata = {name:DATA_FILE_NAME, parents:['appDataFolder']};
-      const body =
-        `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n`+
-        `--${boundary}\r\nContent-Type: application/json\r\n\r\n${payload}\r\n--${boundary}--`;
-      const res = await fetch(`${DRIVE_UPLOAD}?uploadType=multipart&fields=id`, {
-        method:'POST', headers:{Authorization:'Bearer '+token,'Content-Type':`multipart/related; boundary=${boundary}`}, body,
-      });
-      if(!res.ok) throw new Error('drive_create_failed_'+res.status);
-      const j = await res.json();
-      if(!j.id) throw new Error('drive_create_no_id');
-      state.driveFileId = j.id;
+      const payload = persistPayload();
+      const r = await driveCreateFile(DATA_FILE_NAME, JSON.stringify(payload));
+      state.driveFileId = r.id; state.driveVersion = r.version;
+      state.baseSnapshot = GSData.clone(payload);
     }
     state.saving=false; state.saveError=false;
+    flushAfter = state.changelogOutbox.length>0;
   }catch(e){
     state.saving=false; state.saveError=true;
     if(String(e.message)!=='session_expired') toast('Lỗi lưu dữ liệu lên Drive, sẽ thử lại khi bạn thao tác tiếp.');
@@ -662,6 +780,54 @@ async function saveToDrive(){
   saveInFlight=false;
   if(savePendingAgain){ savePendingAgain=false; saveToDrive(); return; }
   renderTopbar();
+  if(flushAfter) flushChangelog();
+}
+/* Vẽ lại sau khi dữ liệu đổi ngầm (gộp, đồng bộ Calendar), nhưng KHÔNG vẽ khi người dùng
+   đang gõ trong một ô nhập: vẽ lại sẽ ghi đè value và làm hỏng bộ gõ tiếng Việt. */
+function safeSoftRefresh(){
+  const a=document.activeElement;
+  if(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return;
+  if(state.google.signedIn) softRefresh();
+}
+/* Lưu nguyên bản file cũ thành file backup riêng trước lần ghi đầu tiên sau khi migrate.
+   Backup lỗi thì KHÔNG ghi file chính (ném lỗi), lần lưu sau sẽ thử lại. */
+async function ensureBackup(){
+  const b=state.pendingBackup; if(!b) return;
+  const name = GSData.backupFileName(todayStr(), b.fromVersion);
+  const exists = await driveFindFile(name);
+  if(!exists) await driveCreateFile(name, b.text);
+  state.pendingBackup=null;
+}
+/* Changelog: chỉ ghi thêm, mỗi tháng một file riêng (changelog-YYYY-MM.json). Các mục chờ
+   nằm trong changelogOutbox của file chính nên đóng app giữa chừng cũng không mất. */
+let changelogFlushing=false;
+async function flushChangelog(){
+  if(changelogFlushing || !state.dataLoaded || !state.changelogOutbox.length) return;
+  changelogFlushing=true;
+  try{
+    const groups = GSData.groupOutboxByMonth(state.changelogOutbox);
+    const sent = new Set();
+    for(const ym of Object.keys(groups)){
+      const name = GSData.changelogFileName(ym);
+      let id = state.changelogFileIds[ym];
+      if(!id){ const f = await driveFindFile(name); id = f ? f.id : null; }
+      if(id){
+        const cur = JSON.parse(await driveReadText(id)||'{}');
+        await driveUpdateFile(id, JSON.stringify(GSData.appendChangelog(cur, groups[ym])));
+      } else {
+        id = (await driveCreateFile(name, JSON.stringify(GSData.appendChangelog(null, groups[ym])))).id;
+      }
+      state.changelogFileIds[ym] = id;
+      groups[ym].forEach(e=>sent.add(e.id));
+    }
+    state.changelogOutbox = state.changelogOutbox.filter(e=>!sent.has(e.id));
+    scheduleSave();
+  }catch(e){ /* để lần sau gửi lại, mục chờ vẫn còn trong outbox */ }
+  changelogFlushing=false;
+}
+function logChanges(changes){
+  if(!changes || !changes.length) return;
+  state.changelogOutbox.push(...changes);
 }
 function normTask(t){
   let subtasks=t.subtasks;
@@ -759,13 +925,13 @@ async function deleteTask(id){
 }
 async function addPerson(p){
   const now=new Date().toISOString();
-  const person=Object.assign({id:uid(),calendarEventId:'',createdAt:now},p);
+  const person=Object.assign({id:uid(),calendarEventId:'',createdAt:now,updatedAt:now},p);
   person.calendarEventId = await syncPersonEvent(person);
   state.people.push(person); scheduleSave();
 }
 async function updatePerson(p){
   const person=state.people.find(x=>x.id===p.id); if(!person) return;
-  Object.assign(person,p);
+  Object.assign(person,p,{updatedAt:new Date().toISOString()});
   person.calendarEventId = await syncPersonEvent(person);
   scheduleSave();
 }
@@ -802,7 +968,9 @@ function renderTopbar(){
   const titles={home:['Trang chủ','Tổng quan việc hôm nay và sắp tới'],
     planner:['Lộ trình mục tiêu','Chia mục tiêu lớn thành giai đoạn, chỉ tiêu tuần và nhật ký ngày'],
     matrix:['Ma trận ưu tiên','Kéo-thả việc vào đúng ô Eisenhower'],
-    calendar:['Lịch','Xem việc & ngày đặc biệt theo tháng'],list:['Danh sách việc','Lọc, tìm kiếm, sắp xếp'],
+    calendar:['Lịch','Xem việc & ngày đặc biệt theo tháng'],
+    schedule:['Lịch thông minh','Lịch khung, block theo tuần và xử lý việc phát sinh'],
+    budget:['Ngân sách tuần','Giờ đã làm thật so với kế hoạch của từng mục tiêu'],list:['Danh sách việc','Lọc, tìm kiếm, sắp xếp'],
     people:['Ngày đặc biệt','Sinh nhật, kỷ niệm và các mốc quan trọng'],notes:['Ghi chú vặt','Những điều nhỏ nhặt cần nhớ'],
     stats:['Thống kê','Theo dõi tiến độ của bạn'],settings:['Cài đặt','Tài khoản, hồ sơ, thông báo']};
   $('#pageTitle').textContent = titles[state.view][0];
@@ -836,6 +1004,7 @@ function softRefresh(){ paintView(false); }
 /* ======================= HOME ======================= */
 function RENDER_HOME(){
   const wrap=el('div');
+  wrap.appendChild(renderSmartBanners());
   const today=todayStr();
   const dueToday = state.tasks.filter(t=>t.status!=='done' && t.dueDate===today);
   const overdue = state.tasks.filter(t=>t.status!=='done' && t.dueDate && t.dueDate<today);
@@ -1000,6 +1169,16 @@ function openTaskModal(t, forceNew){
     </select>
     <label>Nhãn (cách nhau bởi dấu phẩy)</label><input id="f-tags" value="${escAttr(t.tags)}" placeholder="công việc, gấp">
     <label class="switch" style="margin-top:12px;"><input type="checkbox" id="f-sync" ${t.syncCalendar?'checked':''}> Đồng bộ vào Google Calendar (nhắc hẹn thật)</label>
+    <details style="margin-top:10px;"><summary class="subtle">🗓️ Lịch thông minh (tuỳ chọn)</summary>
+      <div class="field-row">
+        <div><label>Ước lượng số block</label><input type="number" min="1" max="20" id="f-est" value="${Number(t.estBlocks)||1}"></div>
+        <div><label>Năng lượng cần</label><select id="f-energy">${energyOptions(t.energyNeed||'')}</select></div>
+      </div>
+      <div class="field-row">
+        <div><label>Sớm nhất</label><input type="date" id="f-earliest" value="${escAttr(t.earliest||'')}"></div>
+        <div><label>Hạn xếp lịch</label><input type="date" id="f-deadline" value="${escAttr(t.deadline||'')}"></div>
+      </div>
+    </details>
     <div class="modal-actions">
       <button class="btn btn-ghost" id="mCancel">Huỷ</button>
       <button class="btn btn-primary" id="mSave">${isEdit?'Lưu':'Thêm'}</button>
@@ -1012,6 +1191,8 @@ function openTaskModal(t, forceNew){
       dueDate:$m('#f-date').value, dueTime:$m('#f-time').value,
       quadrant:Number($m('#f-quad').value), status:$m('#f-status').value,
       tags:$m('#f-tags').value, syncCalendar:$m('#f-sync').checked,
+      estBlocks:Math.max(1,Number($m('#f-est').value)||1), energyNeed:$m('#f-energy').value,
+      earliest:$m('#f-earliest').value, deadline:$m('#f-deadline').value,
     };
     if(!payload.title){ toast('Nhập tên việc đã bạn ơi'); return; }
     closeModal();
@@ -1347,14 +1528,16 @@ function activePhaseIndex(goal){
 }
 
 /* ---- CRUD ---- */
+/* updatedAt của goal dùng để gộp khi hai thiết bị cùng sửa (phase, nhật ký nằm trong goal) */
+function touchGoal(g){ if(g) g.updatedAt=new Date().toISOString(); }
 async function addGoal(g){
   const now=new Date().toISOString();
-  state.goals.push(Object.assign({id:uid(), phases:[], createdAt:now}, g));
+  state.goals.push(Object.assign({id:uid(), phases:[], createdAt:now, updatedAt:now, rank:null, timeBudgetMinPerWeek:null}, g));
   scheduleSave();
 }
 async function updateGoal(id, patch){
   const g=goalById(id); if(!g) return;
-  Object.assign(g, patch); scheduleSave();
+  Object.assign(g, patch); touchGoal(g); scheduleSave();
 }
 async function deleteGoal(id){
   const g=goalById(id);
@@ -1367,13 +1550,13 @@ async function deleteGoal(id){
 }
 async function updatePhase(goalId, phaseId, patch){
   const g=goalById(goalId); const p=phaseById(g,phaseId); if(!p) return;
-  Object.assign(p, patch); scheduleSave();
+  Object.assign(p, patch); touchGoal(g); scheduleSave();
 }
 async function deletePhase(goalId, phaseId){
   const g=goalById(goalId); if(!g) return;
   const p=phaseById(g,phaseId);
   if(p){ for(const l of (p.logs||[])){ if(l.taskId) await deleteTask(l.taskId); } }
-  g.phases=g.phases.filter(x=>x.id!==phaseId); scheduleSave();
+  g.phases=g.phases.filter(x=>x.id!==phaseId); touchGoal(g); scheduleSave();
 }
 /* Thêm nhật ký ngày, đồng thời tạo 1 Task tương ứng để việc này cũng xuất hiện
    trong Ma trận / Danh sách / Lịch như mọi việc khác (đúng yêu cầu không quản 2 nơi). */
@@ -1392,13 +1575,13 @@ async function addPhaseLog(goalId, phaseId, log){
   }
   delete entry.createTask;
   p.logs=p.logs||[]; p.logs.push(entry);
-  scheduleSave();
+  touchGoal(g); scheduleSave();
 }
 async function deletePhaseLog(goalId, phaseId, logId){
   const g=goalById(goalId); const p=phaseById(g,phaseId); if(!p) return;
   const l=(p.logs||[]).find(x=>x.id===logId);
   if(l && l.taskId) await deleteTask(l.taskId);
-  p.logs=(p.logs||[]).filter(x=>x.id!==logId); scheduleSave();
+  p.logs=(p.logs||[]).filter(x=>x.id!==logId); touchGoal(g); scheduleSave();
 }
 
 /* ---- Render: điều phối 3 cấp (danh sách goal / chi tiết goal / chi tiết phase) ---- */
@@ -1485,6 +1668,14 @@ function openGoalModal(g){
       <div><label>Ngày bắt đầu</label><input type="date" id="g-startdate" value="${g.startDate||today}"></div>
       <div><label>Ngày đích</label><input type="date" id="g-targetdate" value="${g.targetDate||''}"></div>
     </div>
+    <div class="field-row">
+      <div><label>Hạng ưu tiên (1 là cao nhất)</label><select id="g-rank">
+        <option value="">Chưa xếp hạng</option>
+        ${[1,2,3,4,5].map(r=>`<option value="${r}" ${Number(g.rank)===r?'selected':''}>Hạng ${r}</option>`).join('')}
+      </select></div>
+      <div><label>Ngân sách giờ mỗi tuần (để trống nếu không cần)</label>
+        <input type="number" step="0.5" min="0" id="g-budget" value="${g.timeBudgetMinPerWeek!=null&&g.timeBudgetMinPerWeek!==''?fmtNum(g.timeBudgetMinPerWeek/60):''}" placeholder="VD: 18"></div>
+    </div>
     ${isEdit?'':`<label>Chia thành mấy giai đoạn? (app sẽ dựng sườn sẵn, bạn tự sửa và bổ sung sau)</label>
       <input type="number" id="g-phases" min="1" max="12" value="3">`}
     <label>Ghi chú / lý do theo đuổi mục tiêu này</label><textarea id="g-note" rows="2">${esc(g.note)}</textarea>
@@ -1504,6 +1695,8 @@ function openGoalModal(g){
       unit: unitSel==='__custom' ? $m('#g-unitcustom').value.trim() : unitSel,
       startValue:Number($m('#g-start').value)||0, targetValue:Number($m('#g-target').value)||0,
       startDate:$m('#g-startdate').value, targetDate:$m('#g-targetdate').value, note:$m('#g-note').value,
+      rank: $m('#g-rank').value==='' ? null : Number($m('#g-rank').value),
+      timeBudgetMinPerWeek: $m('#g-budget').value==='' ? null : Math.round(Number($m('#g-budget').value)*60),
     };
     if(!payload.title){ toast('Đặt tên cho mục tiêu đã bạn ơi'); return; }
     if(!payload.startDate||!payload.targetDate){ toast('Chọn ngày bắt đầu và ngày đích nhé'); return; }
@@ -1647,7 +1840,7 @@ function openPhaseModal(g, p){
     if(!payload.name){ toast('Đặt tên giai đoạn nhé'); return; }
     if(!payload.startDate||!payload.endDate||payload.endDate<payload.startDate){ toast('Kiểm tra lại ngày bắt đầu / kết thúc'); return; }
     if(isEdit){ await updatePhase(g.id, p.id, payload); }
-    else{ g.phases.push(Object.assign({id:uid(), logs:[], retro:null, status:'pending', actualValue:''}, payload)); scheduleSave(); }
+    else{ g.phases.push(Object.assign({id:uid(), logs:[], retro:null, status:'pending', actualValue:''}, payload)); touchGoal(g); scheduleSave(); }
     closeModal(); softRefresh(); toast('Đã lưu giai đoạn 🎯');
   };
 }
@@ -2002,8 +2195,782 @@ function checkReminders(){
   });
 }
 
+/* ======================= LỊCH THÔNG MINH =======================
+   Logic nằm ở engine.js (xếp lịch), datastore.js (dữ liệu), calsync.js (Google Calendar).
+   Phần dưới đây chỉ gọi các hàm đó, đọc/ghi Google API và vẽ giao diện. */
+const SMART_TYPES = {fixed:{label:'Cố định', icon:'📌'}, protected:{label:'Bảo vệ', icon:'🛡️'}, flexible:{label:'Linh hoạt', icon:'🍊'}, buffer:{label:'Đệm', icon:'⏳'}};
+const BLOCK_STATUS = {planned:'kế hoạch', done:'xong', partial:'một phần', skipped:'bỏ', moved:'mất chỗ', unknown:'chưa rõ'};
+const REASONS = {disruption:'Phát sinh', tired:'Mệt', distracted:'Mất tập trung', sick:'Ốm', other:'Khác'};
+const WEEKDAYS = ['CN','T2','T3','T4','T5','T6','T7'];
+const VIA_LABEL = {buffer:'vào khung đệm', energy:'khoảng trống cùng năng lượng', free:'khoảng trống'};
+function tzOff(){ return -new Date().getTimezoneOffset(); }
+function smartCtx(){ return {sleepRules: state.settings.sleepRules||[], tzOffsetMin: tzOff()}; }
+function nowIso(){ return GSEngine.time.toISO(Date.now(), tzOff()); }
+function tms(iso){ return GSEngine.time.parseTime(iso, tzOff()); }
+function hm(iso){ return GSEngine.time.localParts(tms(iso), tzOff()).hhmm; }
+function ymdOf(iso){ return GSEngine.time.localParts(tms(iso), tzOff()).ymd; }
+function isoAt(d, hhmm){ return GSEngine.time.toISO(GSEngine.time.localToMs(d, hhmm, tzOff()), tzOff()); }
+function wdOf(iso){ return GSEngine.time.localParts(tms(iso), tzOff()).wd; }
+function fmtSlot(s,e){ return `${WEEKDAYS[wdOf(s)]} ${fmtDate(ymdOf(s))} ${hm(s)} đến ${hm(e)}${ymdOf(e)!==ymdOf(s)?' ('+fmtDate(ymdOf(e))+')':''}`; }
+function fmtH(min){ return fmtNum(Math.round((Number(min)||0)/6)/10)+' giờ'; }
+function activeGoals(){ return state.goals.filter(g=>!g.deletedAt); }
+function goalTitle(id){ const g=state.goals.find(x=>x.id===id); return g?g.title:''; }
+function currentWeekYmd(){ return GSEngine.time.weekStartYmd(Date.now(), tzOff()); }
+function blocksOfWeek(wk){
+  const s=GSEngine.time.localToMs(wk,'00:00',tzOff()), e=s+7*86400000;
+  return state.blocks.filter(b=>!b.deletedAt && tms(b.end)>s && tms(b.start)<e).sort((a,b)=>tms(a.start)-tms(b.start));
+}
+function pendingDisruptions(){ return state.disruptions.filter(d=>!d.deletedAt && !d.resolution); }
+function checkinDue(){ return GSEngine.checkinQueue(state.blocks, state.checkins, nowIso(), smartCtx()).due; }
+function mkChange(entityId, action, before, after, cause, causeId, entity){
+  return {id:'chg-'+uid(), entity:entity||'block', entityId, action, before:before||null, after:after||null, cause, causeId:causeId||'', createdAt:nowIso()};
+}
+const pickB = b => b ? {start:b.start, end:b.end, status:b.status, type:b.type, goalId:b.goalId||''} : null;
+
+/* ---------- Ghi block lên Google Calendar ---------- */
+async function pushBlockEvent(id){
+  const b=state.blocks.find(x=>x.id===id); if(!b) return false;
+  if(state.settings.syncBlocksToCalendar===false) return false;
+  if(GSCalSync.shouldRemove(b)){ await calDelete(b.gcalEventId); b.gcalEventId=''; b.gcalEtag=''; return true; }
+  if(!GSCalSync.shouldPush(b)) return false;
+  const token=await ensureToken();
+  const tz=Intl.DateTimeFormat().resolvedOptions().timeZone||'Asia/Bangkok';
+  const body=JSON.stringify(GSCalSync.blockEventBody(b, state.goals, tz));
+  const H={Authorization:'Bearer '+token,'Content-Type':'application/json'};
+  let res=null;
+  if(b.gcalEventId){
+    res=await fetch(CAL_EVENTS+'/'+encodeURIComponent(b.gcalEventId), {method:'PATCH', headers:H, body});
+    if(res.status===404||res.status===410) res=null;   // sự kiện đã bị xoá trên Google: tạo lại
+    else if(!res.ok) return false;
+  }
+  if(!res){ res=await fetch(CAL_EVENTS, {method:'POST', headers:H, body}); if(!res.ok) return false; }
+  const j=await res.json().catch(()=>null);
+  if(j && j.id){ b.gcalEventId=j.id; b.gcalEtag=j.etag||''; }  // etag dùng để chống vòng lặp khi đọc ngược
+  return true;
+}
+let calQueue=Promise.resolve();
+function syncBlocksOut(ids){
+  const list=[...new Set(ids||[])];
+  calQueue = calQueue.then(async()=>{
+    let n=0;
+    for(const id of list){ try{ if(await pushBlockEvent(id)) n++; }catch(e){} }
+    if(n) scheduleSave();
+  });
+  return calQueue;
+}
+
+/* ---------- Đọc ngược Google Calendar (events.list + syncToken) ---------- */
+let calPulling=false;
+async function calendarPull(){
+  if(!state.dataLoaded || state.settings.readCalendar===false || calPulling) return;
+  calPulling=true;
+  try{
+    const token=await ensureToken();
+    let syncToken=state.calendarSync.syncToken||'';
+    let full=!syncToken;
+    const timeMin=new Date(Date.now()-86400000).toISOString();
+    let events=[], nextToken='';
+    const fetchAll=async()=>{
+      events=[]; nextToken=''; let pageToken='';
+      do{
+        const qs=new URLSearchParams(GSCalSync.listParams(full?'':syncToken, timeMin, pageToken));
+        const res=await fetch(CAL_EVENTS+'?'+qs.toString(), {headers:{Authorization:'Bearer '+token}});
+        if(res.status===410){ const e=new Error('sync_token_gone'); e.gone=true; throw e; }
+        if(!res.ok) throw new Error('cal_list_'+res.status);
+        const j=await res.json();
+        events.push(...(j.items||[]));
+        pageToken=j.nextPageToken||'';
+        if(j.nextSyncToken) nextToken=j.nextSyncToken;
+      }while(pageToken);
+    };
+    try{ await fetchAll(); }
+    catch(e){ if(!e.gone) throw e; full=true; syncToken=''; await fetchAll(); } // token hết hạn: đồng bộ đầy đủ lại
+    const known=[...state.tasks.map(t=>t.calendarEventId), ...state.people.map(p=>p.calendarEventId)].filter(Boolean);
+    const r=GSCalSync.processEvents({blocks:state.blocks, knownEventIds:known, events, fullSync:full, fullSyncFrom:timeMin}, nowIso(), smartCtx());
+    state.blocks=r.blocks;
+    logChanges(r.changes);
+    r.warnings.forEach(w=>toast('⚠️ '+w.message));
+    let newConflicts=0;
+    r.conflicts.forEach(id=>{ if(queueExternalConflict(id)) newConflicts++; });
+    const tokenChanged = nextToken && nextToken!==state.calendarSync.syncToken;
+    state.calendarSync={syncToken: nextToken||syncToken, lastSyncAt: nowIso()};
+    if(r.changes.length || tokenChanged) scheduleSave();
+    if(newConflicts){
+      toast(`📅 Có ${newConflicts} sự kiện Google chồng lên lịch học, xem phương án ở Lịch thông minh`);
+      notify('📅 Lịch bị chồng', `${newConflicts} sự kiện mới trên Google Calendar chồng lên block của bạn`, 'conflict-'+r.conflicts.join(','));
+    }
+    if(r.changes.length) safeSoftRefresh();
+  }catch(e){ /* lặng lẽ, vòng 5 phút sau thử lại */ }
+  calPulling=false;
+}
+/* Sự kiện ngoài chồng lên block: lưu thành việc phát sinh giờ cố định đang chờ duyệt.
+   Chưa duyệt thì lịch giữ nguyên và giao diện hiện xung đột. */
+function queueExternalConflict(extId){
+  const ext=state.blocks.find(b=>b.id===extId); if(!ext) return false;
+  const d=GSCalSync.disruptionForExternal(ext, nowIso(), smartCtx());
+  if(state.disruptions.some(x=>x.id===d.id)) return false;
+  const p=GSEngine.propose(state.blocks, state.goals, d, nowIso(), smartCtx());
+  if(!p.moved.length && !p.lost.length) return false;
+  state.disruptions.push(d);
+  return true;
+}
+
+/* ---------- Áp dụng / bỏ phương án ---------- */
+function upsertDisruption(d){
+  const rec=Object.assign({}, d, {updatedAt:nowIso()});
+  const i=state.disruptions.findIndex(x=>x.id===d.id);
+  if(i>=0) state.disruptions[i]=Object.assign({}, state.disruptions[i], rec);
+  else state.disruptions.push(Object.assign({createdAt:nowIso()}, rec));
+}
+function summarizeProposal(p){
+  return {ok:p.ok, placement:p.placement, moved:p.moved.map(m=>({blockId:m.blockId, from:m.from, to:m.to, via:m.via})),
+    lost:p.lost.map(b=>b.id), lostMinByGoal:p.lostMinByGoal, warnings:p.warnings.map(w=>w.code)};
+}
+function approveProposal(d, p){
+  const r=GSEngine.applyProposal(state.blocks, p, d, nowIso(), smartCtx());
+  state.blocks=r.blocks;
+  logChanges(r.changes);
+  // Block bị mất chỗ: task bên trong quay về hàng chờ
+  const lostIds=new Set(p.lost.map(b=>b.id));
+  state.tasks.forEach(t=>{ if(t.blockId && lostIds.has(t.blockId)){ t.lastBlockId=t.blockId; t.blockId=''; t.updatedAt=new Date().toISOString(); } });
+  upsertDisruption(Object.assign({}, d, {resolution: d.edited?'edited':'accepted', proposal:summarizeProposal(p)}));
+  scheduleSave();
+  syncBlocksOut(r.changes.map(c=>c.entityId));
+}
+function rejectProposal(d, p){
+  upsertDisruption(Object.assign({}, d, {resolution:'rejected', proposal:summarizeProposal(p)}));
+  scheduleSave();
+}
+
+/* ---------- Lịch khung -> block thật ---------- */
+function generateWeek(wk, silent){
+  const nb=GSEngine.generateWeekBlocks(state.blockTemplates, wk, state.blocks, nowIso(), smartCtx());
+  if(!nb.length){ if(!silent) toast('Tuần này đã có đủ block từ lịch khung'); return 0; }
+  state.blocks.push(...nb);
+  logChanges(nb.map(b=>mkChange(b.id, 'create', null, pickB(b), 'template', b.templateId)));
+  scheduleSave();
+  syncBlocksOut(nb.map(b=>b.id));
+  if(!silent) toast(`Đã sinh ${nb.length} block từ lịch khung 🗓️`);
+  return nb.length;
+}
+/* Mỗi Chủ nhật sinh block cho tuần tới; nếu tuần hiện tại chưa có block nào (lỡ Chủ nhật) thì sinh bù. */
+function autoGenerateWeeks(){
+  if(state.settings.autoGenerateWeek===false || !state.blockTemplates.some(t=>!t.deletedAt)) return;
+  const cur=currentWeekYmd(), next=GSEngine.time.addDaysYmd(cur,7);
+  const has = wk => state.blocks.some(b=>b.source==='template' && ymdOf(b.start)>=wk && ymdOf(b.start)<GSEngine.time.addDaysYmd(wk,7));
+  if(!has(cur)) generateWeek(cur, true);
+  if(new Date().getDay()===0 && !has(next)) generateWeek(next, true);
+}
+function markStale(){
+  const r=GSEngine.markStaleUnknown(state.blocks, state.checkins, nowIso(), smartCtx());
+  if(r.changes.length){ state.blocks=r.blocks; logChanges(r.changes); scheduleSave(); }
+}
+
+/* ---------- Check-in ---------- */
+function doCheckin(block, result, ratio, reason, note){
+  const c={id:'ck-'+uid(), blockId:block.id, result, completedRatio:ratio, reasonCode:reason||'', note:note||''};
+  const r=GSEngine.applyCheckin(state.blocks, state.tasks, c, nowIso(), smartCtx());
+  state.blocks=r.blocks; state.tasks=r.tasks; state.checkins.push(r.checkin);
+  logChanges(r.changes); scheduleSave();
+  return r.returnedTasks;
+}
+function waitingTasks(){ return state.tasks.filter(t=>!t.deletedAt && t.status!=='done' && !t.blockId && t.lastBlockId); }
+function approveTaskSlots(placed){
+  const ids=[];
+  placed.forEach(s=>{
+    const t=state.tasks.find(x=>x.id===s.taskId); if(!t) return;
+    const b={id:'blk-m-'+uid(), templateId:'', start:s.start, end:s.end, type:'flexible', goalId:s.goalId||t.goalId||'', energy:s.energy||'',
+      label:t.title||'Việc', status:'planned', source:'manual', deadline:t.deadline||'', gcalEventId:'', updatedAt:nowIso()};
+    state.blocks.push(b); ids.push(b.id);
+    t.blockId=b.id; t.updatedAt=new Date().toISOString();
+    logChanges([mkChange(b.id,'create',null,pickB(b),'user_edit','task:'+t.id)]);
+  });
+  scheduleSave(); syncBlocksOut(ids);
+}
+
+/* ---------- Thông báo trong lúc mở app ---------- */
+function notify(title, body, key){
+  if(!('Notification' in window) || Notification.permission!=='granted') return;
+  if(state.profile.notificationsEnabled===false||state.profile.notificationsEnabled==='false') return;
+  if(key){ if(state.notified.has(key)) return; state.notified.add(key); }
+  try{ const n=new Notification(title, {body}); n.onclick=()=>{ window.focus(); n.close(); }; }catch(e){}
+}
+/* Mỗi phút: báo khi block vừa kết thúc (để check-in) và khi khung đệm đang trống */
+function smartMinuteTick(){
+  if(!state.dataLoaded) return;
+  const now=Date.now();
+  state.blocks.forEach(b=>{
+    if(!GSEngine.isActive(b) || b.status!=='planned' || !['flexible','protected'].includes(b.type)) return;
+    const e=tms(b.end);
+    if(e<=now && now-e<15*60000) notify('✅ Block vừa kết thúc: '+(b.label||''), 'Mở Greysteel để check-in: Xong, Một phần hay Bỏ?', 'blockend-'+b.id);
+  });
+  GSEngine.emptyBuffersAt(state.blocks, nowIso(), smartCtx()).forEach(b=>
+    notify('⏳ Khung đệm đang trống', 'Dùng để học thêm hay nghỉ? Mở app để chọn.', 'buffer-'+b.id));
+}
+async function smartTick(){
+  if(!state.dataLoaded) return;
+  markStale();
+  await calendarPull();
+}
+let smartTimersStarted=false;
+async function smartOnOpen(){
+  if(!state.dataLoaded) return;
+  autoGenerateWeeks();
+  markStale();
+  await calendarPull();
+  if(!smartTimersStarted){
+    smartTimersStarted=true;
+    setInterval(smartTick, 5*60*1000);
+    setInterval(smartMinuteTick, 60*1000);
+  }
+  // Hàng chờ check-in: mỗi lần mở app hiện các block đã kết thúc mà chưa check-in
+  if(checkinDue().length && !$('#modalBg').classList.contains('show')) openCheckinModal();
+  else safeSoftRefresh();
+}
+
+/* ======================= GIAO DIỆN LỊCH THÔNG MINH ======================= */
+function renderSmartBanners(){
+  const box=el('div');
+  const due=checkinDue();
+  if(due.length){
+    const b=el('div','banner',`✅ Có <strong>${due.length}</strong> block đã kết thúc chưa check-in. `);
+    const btn=el('button','btn btn-primary btn-sm','Check-in ngay'); btn.id='openCheckin'; btn.onclick=openCheckinModal;
+    b.appendChild(btn); box.appendChild(b);
+  }
+  const pend=pendingDisruptions();
+  if(pend.length){
+    const b=el('div','banner',`📅 <strong>${pend.length}</strong> sự kiện chồng lên lịch, chưa duyệt phương án (lịch đang giữ nguyên). `);
+    pend.forEach(d=>{ const x=el('button','btn btn-ghost btn-sm','Xem phương án: '+esc(d.title||'')); x.style.margin='4px 4px 0 0'; x.onclick=()=>reviewDisruption(d); b.appendChild(x); });
+    box.appendChild(b);
+  }
+  GSEngine.emptyBuffersAt(state.blocks, nowIso(), smartCtx()).forEach(buf=>{
+    const b=el('div','banner',`⏳ Khung đệm <strong>${hm(buf.start)} đến ${hm(buf.end)}</strong> đang trống. Dùng để học thêm hay nghỉ? `);
+    const study=el('button','btn btn-primary btn-sm','Học thêm'); study.onclick=()=>useBuffer(buf,'study');
+    const rest=el('button','btn btn-ghost btn-sm','Nghỉ'); rest.style.marginLeft='6px'; rest.onclick=()=>useBuffer(buf,'rest');
+    b.append(study, rest); box.appendChild(b);
+  });
+  return box;
+}
+function useBuffer(buf, choice){
+  const b=state.blocks.find(x=>x.id===buf.id); if(!b) return;
+  const before=pickB(b);
+  b.bufferChoice=choice; b.updatedAt=nowIso();
+  if(choice==='rest'){ b.status='done'; logChanges([mkChange(b.id,'buffer_rest',before,pickB(b),'user_edit')]); }
+  else{
+    const top=activeGoals().filter(g=>Number(g.rank)>=1).sort((a,c)=>Number(a.rank)-Number(c.rank))[0];
+    const start=GSEngine.time.toISO(Math.max(tms(b.start), Math.ceil(Date.now()/300000)*300000), tzOff());
+    const nb={id:'blk-m-'+uid(), templateId:'', start, end:b.end, type:'flexible', goalId:top?top.id:'', energy:'light',
+      label:'Học thêm (khung đệm)', status:'planned', source:'manual', deadline:'', gcalEventId:'', updatedAt:nowIso()};
+    state.blocks.push(nb);
+    logChanges([mkChange(nb.id,'create',null,pickB(nb),'user_edit','buffer:'+b.id)]);
+    syncBlocksOut([nb.id]);
+  }
+  scheduleSave(); softRefresh(); toast(choice==='rest'?'Nghỉ ngơi nhé 🍵':'Đã thêm block học thêm 📚');
+}
+
+function RENDER_SCHEDULE(){
+  const wrap=el('div');
+  wrap.appendChild(renderSmartBanners());
+  const tabs=el('div','sch-tabs');
+  [['week','🗓️ Tuần'],['templates','🧩 Lịch khung'],['sleep','😴 Giờ ngủ & cài đặt']].forEach(([id,l])=>{
+    const b=el('button','btn btn-ghost btn-sm'+(state.schedule.tab===id?' on':''), l);
+    b.dataset.tab=id;
+    b.onclick=()=>{ state.schedule.tab=id; softRefresh(); };
+    tabs.appendChild(b);
+  });
+  wrap.appendChild(tabs);
+  if(state.schedule.tab==='templates') wrap.appendChild(renderTemplates());
+  else if(state.schedule.tab==='sleep') wrap.appendChild(renderSleepSettings());
+  else wrap.appendChild(renderWeek());
+  return wrap;
+}
+function weekNav(onChange){
+  const wk=state.schedule.weekStart||currentWeekYmd();
+  const head=el('div','sch-head');
+  const prev=el('button','btn btn-ghost btn-sm','‹ Tuần trước');
+  const next=el('button','btn btn-ghost btn-sm','Tuần sau ›');
+  const lbl=el('div','', `<strong>Tuần ${fmtDate(wk)} đến ${fmtDate(GSEngine.time.addDaysYmd(wk,6))}</strong>${wk===currentWeekYmd()?' <span class="tag">tuần này</span>':''}`);
+  prev.onclick=()=>{ state.schedule.weekStart=GSEngine.time.addDaysYmd(wk,-7); onChange(); };
+  next.onclick=()=>{ state.schedule.weekStart=GSEngine.time.addDaysYmd(wk,7); onChange(); };
+  head.append(prev, lbl, next);
+  return {head, wk};
+}
+function renderWeek(){
+  const wrap=el('div');
+  const {head, wk}=weekNav(softRefresh);
+  wrap.appendChild(head);
+  const acts=el('div','sch-actions');
+  const addD=el('button','btn btn-primary','+ Thêm việc phát sinh'); addD.id='addDisruption'; addD.onclick=()=>openDisruptionModal();
+  const gen=el('button','btn btn-ghost','Sinh block tuần này từ lịch khung'); gen.id='genWeek';
+  gen.onclick=()=>{ if(!state.blockTemplates.some(t=>!t.deletedAt)){ toast('Chưa có lịch khung, vào tab Lịch khung để tạo'); return; } generateWeek(wk); softRefresh(); };
+  const addB=el('button','btn btn-ghost','+ Thêm block'); addB.onclick=()=>openBlockModal(null, wk);
+  acts.append(addD, gen, addB);
+  wrap.appendChild(acts);
+
+  const blocks=blocksOfWeek(wk);
+  const conflictIds=new Set(GSEngine.findConflicts(blocks, smartCtx()).flatMap(c=>[c.blockId, c.fixedId]));
+  const grid=el('div','week-grid');
+  const today=todayStr();
+  for(let i=0;i<7;i++){
+    const day=GSEngine.time.addDaysYmd(wk,i);
+    const col=el('div','day-col'+(day===today?' today':''));
+    col.dataset.day=day;
+    col.innerHTML=`<h4>${WEEKDAYS[(i+1)%7]} · ${fmtDate(day).slice(0,5)}</h4>`;
+    const list=blocks.filter(b=>ymdOf(b.start)===day);
+    list.forEach(b=>col.appendChild(blockCard(b, conflictIds.has(b.id))));
+    if(!list.length) col.appendChild(el('div','subtle','Trống'));
+    grid.appendChild(col);
+  }
+  wrap.appendChild(grid);
+  if(!blocks.length) wrap.appendChild(el('div','empty','Tuần này chưa có block nào. Tạo lịch khung rồi bấm "Sinh block tuần này từ lịch khung".'));
+
+  const waits=waitingTasks();
+  if(waits.length){
+    const c=el('div','card'); c.style.marginTop='16px';
+    c.innerHTML=`<h3 style="margin-top:0;">📥 Việc chờ xếp lại (${waits.length})</h3>`+
+      waits.map(t=>`<div class="rv-row"><span>${esc(t.title)}</span><span class="subtle">${Number(t.estBlocks)||1} block${t.deadline?' · hạn '+fmtDate(t.deadline):''}</span></div>`).join('');
+    const sug=el('button','btn btn-primary btn-sm','Đề xuất chỗ mới'); sug.style.marginTop='10px';
+    sug.onclick=()=>openTaskSlotsModal(waits);
+    c.appendChild(sug); wrap.appendChild(c);
+  }
+  return wrap;
+}
+function blockCard(b, conflict){
+  const st=SMART_TYPES[b.type]||SMART_TYPES.flexible;
+  const c=el('div',`blk t-${b.type||'flexible'} s-${b.status||'planned'}${conflict?' conflict':''}`);
+  c.dataset.blockId=b.id;
+  const tasks=state.tasks.filter(t=>t.blockId===b.id && !t.deletedAt);
+  c.innerHTML=`<div class="blk-time">${hm(b.start)} - ${hm(b.end)}</div>
+    <div class="blk-label">${esc(b.label)||'(block)'}</div>
+    <div class="blk-meta"><span class="type-badge">${st.icon} ${st.label}</span> ${b.goalId?esc(goalTitle(b.goalId)):''}
+      ${b.energy?' · '+(b.energy==='deep'?'sâu':'nhẹ'):''} · ${BLOCK_STATUS[b.status]||esc(b.status)}${b.source==='external'?' · Google':''}
+      ${conflict?' · <strong style="color:var(--danger)">xung đột</strong>':''}</div>
+    ${tasks.map(t=>`<div class="blk-task">${t.status==='done'?'✅':'▫️'} ${esc(t.title)}</div>`).join('')}
+    <div class="blk-acts"></div>`;
+  const acts=$('.blk-acts',c);
+  const ended=tms(b.end)<=Date.now();
+  if(ended && b.status==='planned' && ['flexible','protected'].includes(b.type) && !state.checkins.some(x=>x.blockId===b.id)){
+    const ci=el('button',null,'Check-in'); ci.onclick=()=>openCheckinModal([b]); acts.appendChild(ci);
+  }
+  if(b.source!=='external' && GSEngine.isActive(b)){
+    if(b.type!=='fixed' && b.type!=='buffer'){ const as=el('button',null,'Gán việc'); as.onclick=()=>openAssignModal(b); acts.appendChild(as); }
+    const ed=el('button',null,'Sửa'); ed.onclick=()=>openBlockModal(b); acts.appendChild(ed);
+    const del=el('button',null,'Xoá'); del.onclick=()=>confirmDelete('Xoá block này? Việc bên trong sẽ quay về hàng chờ.', async()=>{ deleteBlock(b.id); softRefresh(); });
+    acts.appendChild(del);
+  }
+  return c;
+}
+function deleteBlock(id){
+  const i=state.blocks.findIndex(x=>x.id===id); if(i<0) return;
+  const before=state.blocks[i];
+  state.blocks[i]=GSData.softDelete(before, nowIso());
+  state.tasks.forEach(t=>{ if(t.blockId===id){ t.lastBlockId=id; t.blockId=''; t.updatedAt=new Date().toISOString(); } });
+  logChanges([mkChange(id,'delete',pickB(before),null,'user_edit')]);
+  scheduleSave(); syncBlocksOut([id]);
+}
+function goalOptions(sel, emptyLabel){
+  return `<option value="">${emptyLabel||'Không gắn mục tiêu'}</option>`+activeGoals().map(g=>`<option value="${escAttr(g.id)}" ${sel===g.id?'selected':''}>${esc(g.title)}${g.rank?' (hạng '+g.rank+')':''}</option>`).join('');
+}
+function typeOptions(sel){ return Object.keys(SMART_TYPES).map(k=>`<option value="${k}" ${sel===k?'selected':''}>${SMART_TYPES[k].icon} ${SMART_TYPES[k].label}</option>`).join(''); }
+function energyOptions(sel){ return [['','Không yêu cầu'],['deep','Sâu (buổi sáng, dạng mới khó)'],['light','Nhẹ (buổi tối, ôn, sổ lỗi)']].map(([v,l])=>`<option value="${v}" ${sel===v?'selected':''}>${l}</option>`).join(''); }
+
+/* Sửa / thêm một block cụ thể của tuần (không đổi lịch khung) */
+function openBlockModal(b, wk){
+  const isEdit=!!b;
+  const d0 = b? ymdOf(b.start) : (todayStr()>=wk && todayStr()<GSEngine.time.addDaysYmd(wk,7) ? todayStr() : wk);
+  b=b||{type:'flexible', start:isoAt(d0,'08:00'), end:isoAt(d0,'09:00'), label:'', goalId:'', energy:''};
+  const body=$('#modalBody');
+  body.innerHTML=`<h2>${isEdit?'Sửa block':'Thêm block'} 🗓️</h2>
+    <label>Nhãn</label><input id="b-label" value="${escAttr(b.label)}" placeholder="VD: Học GT chương 3">
+    <div class="field-row">
+      <div><label>Ngày</label><input type="date" id="b-date" value="${ymdOf(b.start)}"></div>
+      <div><label>Bắt đầu</label><input type="time" id="b-start" value="${hm(b.start)}"></div>
+      <div><label>Kết thúc</label><input type="time" id="b-end" value="${hm(b.end)}"></div>
+    </div>
+    <div class="field-row">
+      <div><label>Loại</label><select id="b-type">${typeOptions(b.type)}</select></div>
+      <div><label>Mục tiêu</label><select id="b-goal">${goalOptions(b.goalId)}</select></div>
+      <div><label>Năng lượng</label><select id="b-energy">${energyOptions(b.energy)}</select></div>
+    </div>
+    <p class="subtle">Sửa ở đây chỉ đổi block của tuần này, không đổi lịch khung.</p>
+    <div class="modal-actions"><button class="btn btn-ghost" id="mCancel">Huỷ</button><button class="btn btn-primary" id="mSave">${isEdit?'Lưu':'Thêm'}</button></div>`;
+  $('#modalBg').classList.add('show');
+  $m('#mCancel').onclick=closeModal;
+  $m('#mSave').onclick=()=>{
+    const day=$m('#b-date').value, s=$m('#b-start').value, e=$m('#b-end').value;
+    if(!day||!s||!e){ toast('Chọn ngày và giờ nhé'); return; }
+    const start=isoAt(day,s); let end=isoAt(day,e);
+    if(tms(end)<=tms(start)) end=isoAt(GSEngine.time.addDaysYmd(day,1), e);
+    const patch={label:$m('#b-label').value.trim(), start, end, type:$m('#b-type').value, goalId:$m('#b-goal').value, energy:$m('#b-energy').value, updatedAt:nowIso()};
+    let id;
+    if(isEdit){
+      const i=state.blocks.findIndex(x=>x.id===b.id); const before=state.blocks[i];
+      state.blocks[i]=Object.assign({}, before, patch); id=b.id;
+      logChanges([mkChange(id,'update',pickB(before),pickB(state.blocks[i]),'user_edit')]);
+    } else {
+      const nb=Object.assign({id:'blk-m-'+uid(), templateId:'', status:'planned', source:'manual', deadline:'', gcalEventId:''}, patch);
+      state.blocks.push(nb); id=nb.id;
+      logChanges([mkChange(id,'create',null,pickB(nb),'user_edit')]);
+    }
+    const v=GSCalSync.hardRuleViolations(state.blocks.find(x=>x.id===id), state.blocks, smartCtx());
+    if(v.length) toast('⚠️ Block này '+v.map(x=>x.message).join(', '));
+    closeModal(); scheduleSave(); syncBlocksOut([id]); softRefresh();
+  };
+}
+function openAssignModal(b){
+  const cands=state.tasks.filter(t=>!t.deletedAt && t.status!=='done' && (!t.blockId || t.blockId===b.id));
+  const body=$('#modalBody');
+  body.innerHTML=`<h2>Gán việc vào block</h2><div class="subtle">${esc(b.label)} · ${fmtSlot(b.start,b.end)}</div>
+    <div style="margin-top:10px;max-height:50vh;overflow:auto;">${cands.map(t=>`<label class="switch" style="margin:6px 0;"><input type="checkbox" data-tid="${escAttr(t.id)}" ${t.blockId===b.id?'checked':''}> ${esc(t.title)}</label>`).join('')||'<div class="empty">Không có việc nào đang chờ xếp</div>'}</div>
+    <div class="modal-actions"><button class="btn btn-ghost" id="mCancel">Huỷ</button><button class="btn btn-primary" id="mSave">Lưu</button></div>`;
+  $('#modalBg').classList.add('show');
+  $m('#mCancel').onclick=closeModal;
+  $m('#mSave').onclick=()=>{
+    $$('#modalBody input[data-tid]').forEach(cb=>{
+      const t=state.tasks.find(x=>x.id===cb.dataset.tid); if(!t) return;
+      const want=cb.checked?b.id:'';
+      if(t.blockId!==want){ logChanges([mkChange(t.id, want?'assign':'unassign', {blockId:t.blockId||''}, {blockId:want}, 'user_edit', '', 'task')]); t.blockId=want; t.updatedAt=new Date().toISOString(); }
+    });
+    closeModal(); scheduleSave(); softRefresh();
+  };
+}
+
+/* ---------- Form "Thêm việc phát sinh" ---------- */
+function openDisruptionModal(prefill){
+  const d=prefill||{};
+  const nowD=new Date(Math.ceil(Date.now()/(15*60000))*15*60000);
+  const dflDate=ymd(nowD), dflTime=`${String(nowD.getHours()).padStart(2,'0')}:${String(nowD.getMinutes()).padStart(2,'0')}`;
+  const fs=d.fixedStart?{d:ymdOf(d.fixedStart),t:hm(d.fixedStart)}:{d:dflDate,t:dflTime};
+  const ws=d.windowStart?{d:ymdOf(d.windowStart),t:hm(d.windowStart)}:{d:dflDate,t:dflTime};
+  const we=d.windowEnd?{d:ymdOf(d.windowEnd),t:hm(d.windowEnd)}:{d:dflDate,t:'22:00'};
+  const mode=d.mode||'fixed_time';
+  const body=$('#modalBody');
+  body.innerHTML=`<h2>Thêm việc phát sinh ⚡</h2>
+    <label>Tên việc</label><input id="d-title" value="${escAttr(d.title)}" placeholder="VD: Họp BCS">
+    <div class="field-row">
+      <div><label>Thời lượng (phút)</label><input type="number" min="5" step="5" id="d-dur" value="${d.durationMin||60}"></div>
+      <div><label>Ưu tiên (1 cao nhất)</label><select id="d-prio">${[1,2,3,4,5].map(p=>`<option value="${p}" ${Number(d.priority||5)===p?'selected':''}>${p}</option>`).join('')}</select></div>
+      <div><label>Hoặc lấy theo mục tiêu</label><select id="d-goal">${goalOptions(d.goalId,'Không chọn')}</select></div>
+    </div>
+    <label>Kiểu giờ</label>
+    <select id="d-mode"><option value="fixed_time" ${mode==='fixed_time'?'selected':''}>Giờ cố định</option><option value="flexible" ${mode==='flexible'?'selected':''}>Linh hoạt trong khung</option></select>
+    <div id="d-fixed" class="field-row" style="${mode==='fixed_time'?'':'display:none;'}">
+      <div><label>Ngày</label><input type="date" id="d-fdate" value="${fs.d}"></div>
+      <div><label>Giờ bắt đầu</label><input type="time" id="d-ftime" value="${fs.t}"></div>
+    </div>
+    <div id="d-flex" style="${mode==='flexible'?'':'display:none;'}">
+      <div class="field-row">
+        <div><label>Từ ngày</label><input type="date" id="d-wsdate" value="${ws.d}"></div>
+        <div><label>Từ giờ</label><input type="time" id="d-wstime" value="${ws.t}"></div>
+      </div>
+      <div class="field-row">
+        <div><label>Đến ngày</label><input type="date" id="d-wedate" value="${we.d}"></div>
+        <div><label>Đến giờ</label><input type="time" id="d-wetime" value="${we.t}"></div>
+      </div>
+    </div>
+    <div class="modal-actions"><button class="btn btn-ghost" id="mCancel">Huỷ</button><button class="btn btn-primary" id="mSave">Xem phương án</button></div>`;
+  $('#modalBg').classList.add('show');
+  $m('#d-mode').onchange=e=>{ $m('#d-fixed').style.display=e.target.value==='fixed_time'?'':'none'; $m('#d-flex').style.display=e.target.value==='flexible'?'':'none'; };
+  $m('#d-goal').onchange=e=>{ const g=state.goals.find(x=>x.id===e.target.value); if(g && Number(g.rank)>=1) $m('#d-prio').value=String(g.rank); };
+  $m('#mCancel').onclick=closeModal;
+  $m('#mSave').onclick=()=>{
+    const m=$m('#d-mode').value;
+    const nd={id:d.id||('dis-'+uid()), title:$m('#d-title').value.trim(), durationMin:Number($m('#d-dur').value)||0,
+      priority:Number($m('#d-prio').value), goalId:$m('#d-goal').value, mode:m, source:'manual', edited:!!d.id,
+      fixedStart: m==='fixed_time' ? isoAt($m('#d-fdate').value, $m('#d-ftime').value) : '',
+      windowStart: m==='flexible' ? isoAt($m('#d-wsdate').value, $m('#d-wstime').value) : '',
+      windowEnd: m==='flexible' ? isoAt($m('#d-wedate').value, $m('#d-wetime').value) : '', resolution:''};
+    if(!nd.title){ toast('Nhập tên việc đã bạn ơi'); return; }
+    if(nd.durationMin<=0){ toast('Thời lượng phải lớn hơn 0'); return; }
+    if(m==='flexible' && tms(nd.windowEnd)<=tms(nd.windowStart)){ toast('Giờ kết thúc khung phải sau giờ bắt đầu'); return; }
+    openReviewModal(nd, GSEngine.propose(state.blocks, state.goals, nd, nowIso(), smartCtx()));
+  };
+}
+function reviewDisruption(d){ openReviewModal(d, GSEngine.propose(state.blocks, state.goals, d, nowIso(), smartCtx())); }
+
+/* ---------- Màn hình duyệt phương án ---------- */
+function openReviewModal(d, p){
+  const body=$('#modalBody');
+  const byGoalAfter={}; p.budget_after.forEach(x=>{ byGoalAfter[x.goalId]=x; });
+  const budgetRows=p.budget_before.filter(x=>x.targetMin||x.plannedMin||(byGoalAfter[x.goalId]||{}).plannedMin).map(x=>{
+    const a=byGoalAfter[x.goalId]||x; const diff=a.plannedMin-x.plannedMin;
+    return `<tr><td>${esc(x.title)}${x.rawRank?' <span class="subtle">(hạng '+x.rawRank+')</span>':''}</td><td>${x.targetMin!=null?fmtH(x.targetMin):'-'}</td>
+      <td>${fmtH(x.plannedMin)}</td><td>${fmtH(a.plannedMin)} ${diff?`<strong class="${diff<0?'rv-lost':''}">(${diff>0?'+':''}${diff} phút)</strong>`:''}</td></tr>`;
+  }).join('');
+  const conflict=p.warnings.find(w=>w.code==='conflict');
+  body.innerHTML=`<h2>${d.forced?'Sự kiện Google chồng lịch':'Phương án xếp lịch'} 🔍</h2>
+    <div class="subtle">${esc(d.title)} · ${d.durationMin} phút · ưu tiên ${p.priority} · ${d.mode==='fixed_time'?'giờ cố định':'linh hoạt '+fmtSlot(d.windowStart,d.windowEnd)}</div>
+    <div class="rv-section"><h3>Việc mới nằm ở đâu</h3>
+      ${p.placement?`<div class="rv-row" id="rv-placement"><span>${fmtSlot(p.placement.start,p.placement.end)}</span><span class="subtle">${p.placement.bufferUsed?'dùng khung đệm · ':''}chi phí ${p.placement.cost}</span></div>`
+        :`<div class="retro-verdict warn" id="rv-conflict">${esc(conflict?conflict.message:'Không xếp được')}</div>`}
+    </div>
+    ${!p.ok && p.alternatives.length?`<div class="rv-section"><h3>Khung thay thế hợp lệ gần nhất</h3>${p.alternatives.map((a,i)=>`<div class="rv-row"><span>${fmtSlot(a.start,a.end)}</span><button class="btn btn-ghost btn-sm" data-alt="${i}">Chọn khung này</button></div>`).join('')}</div>`:''}
+    <div class="rv-section"><h3>Block bị dời (${p.moved.length})</h3>
+      ${p.moved.map(m=>`<div class="rv-row rv-moved"><span><strong>${esc(m.block.label)}</strong> ${m.block.goalId?'· '+esc(goalTitle(m.block.goalId)):''}</span><span>${fmtSlot(m.from.start,m.from.end)} → <strong>${fmtSlot(m.to.start,m.to.end)}</strong> <span class="subtle">(${VIA_LABEL[m.via]||m.via})</span></span></div>`).join('')||'<div class="subtle">Không có</div>'}
+    </div>
+    <div class="rv-section"><h3>Block bị mất (${p.lost.length})</h3>
+      ${p.lost.map(b=>`<div class="rv-row rv-lost"><span>${esc(b.label)} ${b.goalId?'· '+esc(goalTitle(b.goalId)):''}</span><span>${fmtSlot(b.start,b.end)} · hụt ${Math.round((tms(b.end)-tms(b.start))/60000)} phút</span></div>`).join('')||'<div class="subtle">Không có</div>'}
+    </div>
+    <div class="rv-section"><h3>Ngân sách tuần (kế hoạch)</h3>
+      <div class="tbl-wrap"><table id="rv-budget"><thead><tr><th>Mục tiêu</th><th>Mục tiêu tuần</th><th>Trước</th><th>Sau</th></tr></thead><tbody>${budgetRows||'<tr><td colspan="4" class="subtle">Chưa có mục tiêu nào có ngân sách giờ</td></tr>'}</tbody></table></div>
+    </div>
+    ${p.warnings.filter(w=>w.code!=='conflict').map(w=>`<div class="subtle">⚠️ ${esc(w.message)}</div>`).join('')}
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="rv-reject">Bỏ</button>
+      ${d.forced?'':'<button class="btn btn-ghost" id="rv-edit">Sửa</button>'}
+      <button class="btn btn-primary" id="rv-approve" ${p.ok?'':'disabled style="opacity:.5"'}>Duyệt</button>
+    </div>`;
+  $('#modalBg').classList.add('show');
+  $$('#modalBody [data-alt]').forEach(btn=>btn.onclick=()=>{
+    const a=p.alternatives[Number(btn.dataset.alt)];
+    const nd=Object.assign({}, d, {mode:'fixed_time', fixedStart:a.start, edited:true});
+    openReviewModal(nd, GSEngine.propose(state.blocks, state.goals, nd, nowIso(), smartCtx()));
+  });
+  $m('#rv-reject').onclick=()=>{ rejectProposal(d,p); closeModal(); softRefresh(); toast(d.forced?'Đã giữ nguyên lịch, xung đột vẫn còn':'Đã bỏ việc phát sinh'); };
+  if($m('#rv-edit')) $m('#rv-edit').onclick=()=>openDisruptionModal(Object.assign({}, d, {edited:true}));
+  $m('#rv-approve').onclick=()=>{ if(!p.ok) return; approveProposal(d,p); closeModal(); softRefresh(); toast('Đã duyệt và cập nhật lịch ✅'); };
+}
+
+/* ---------- Hàng chờ check-in ---------- */
+function openCheckinModal(onlyBlocks){
+  let queue=(onlyBlocks||checkinDue()).slice();
+  let returned=[];
+  const body=$('#modalBody');
+  const draw=()=>{
+    queue=queue.filter(b=>{ const cur=state.blocks.find(x=>x.id===b.id); return cur && cur.status==='planned' && !state.checkins.some(c=>c.blockId===b.id); });
+    if(!queue.length){
+      if(returned.length) return openTaskSlotsModal(returned);
+      closeModal(); softRefresh(); return;
+    }
+    body.innerHTML=`<h2>Check-in ✅</h2><div class="subtle">Block đã kết thúc. Bạn làm được tới đâu?</div>`+
+      queue.map(b=>`<div class="ci-item" data-ci="${escAttr(b.id)}"><div><strong>${esc(b.label)}</strong> ${b.goalId?'· '+esc(goalTitle(b.goalId)):''}</div>
+        <div class="subtle">${fmtSlot(b.start,b.end)}</div>
+        <div class="ci-btns"><button class="btn btn-primary btn-sm" data-r="done">Xong</button><button class="btn btn-ghost btn-sm" data-r="partial">Một phần</button><button class="btn btn-ghost btn-sm" data-r="skipped">Bỏ</button></div>
+        <div class="ci-more" style="display:none;"></div></div>`).join('')+
+      `<div class="modal-actions"><button class="btn btn-ghost" id="mCancel">Để sau</button></div>`;
+    $m('#mCancel').onclick=()=>{ if(returned.length) return openTaskSlotsModal(returned); closeModal(); softRefresh(); };
+    $$('#modalBody .ci-item').forEach(item=>{
+      const b=queue.find(x=>x.id===item.dataset.ci);
+      $$('button[data-r]', item).forEach(btn=>btn.onclick=()=>{
+        const r=btn.dataset.r;
+        if(r==='done'){ returned.push(...doCheckin(b,'done',1,'','')); draw(); return; }
+        const more=$('.ci-more',item); more.style.display='block';
+        more.innerHTML=`${r==='partial'?`<label>Hoàn thành được</label><select class="ci-ratio"><option value="0.25">25%</option><option value="0.5" selected>50%</option><option value="0.75">75%</option></select>`:''}
+          <label>Lý do</label><select class="ci-reason">${Object.keys(REASONS).map(k=>`<option value="${k}">${REASONS[k]}</option>`).join('')}</select>
+          <label>Ghi chú (tuỳ chọn)</label><input class="ci-note">
+          <button class="btn btn-primary btn-sm ci-save" style="margin-top:8px;">Lưu check-in</button>`;
+        $('.ci-save',more).onclick=()=>{
+          const ratio=r==='partial'?Number($('.ci-ratio',more).value):0;
+          returned.push(...doCheckin(b, r, ratio, $('.ci-reason',more).value, $('.ci-note',more).value));
+          draw();
+        };
+      });
+    });
+  };
+  $('#modalBg').classList.add('show');
+  draw();
+}
+/* Task vừa quay về hàng chờ: engine đề xuất chỗ mới trong hạn, người dùng duyệt */
+function openTaskSlotsModal(tasks){
+  const sug=GSEngine.proposeTaskSlots(tasks, state.blocks, state.goals, nowIso(), smartCtx());
+  const body=$('#modalBody');
+  body.innerHTML=`<h2>Xếp lại việc 📥</h2><div class="subtle">${tasks.length} việc đang chờ xếp. Đề xuất chỗ mới trong hạn:</div>
+    ${sug.placed.map(s=>`<div class="rv-row ts-row"><span>${esc(s.title)}</span><strong>${fmtSlot(s.start,s.end)}</strong></div>`).join('')}
+    ${sug.unplaced.map(t=>`<div class="rv-row rv-lost"><span>${esc(t.title)}</span><span>không còn chỗ trong hạn</span></div>`).join('')}
+    <div class="modal-actions"><button class="btn btn-ghost" id="mCancel">Để sau</button><button class="btn btn-primary" id="ts-approve" ${sug.placed.length?'':'disabled'}>Duyệt đề xuất</button></div>`;
+  $('#modalBg').classList.add('show');
+  $m('#mCancel').onclick=()=>{ closeModal(); softRefresh(); };
+  $m('#ts-approve').onclick=()=>{ approveTaskSlots(sug.placed); closeModal(); softRefresh(); toast('Đã xếp lại việc vào lịch 📥'); };
+}
+
+/* ---------- Lịch khung ---------- */
+function renderTemplates(){
+  const wrap=el('div');
+  const tpls=state.blockTemplates.filter(t=>!t.deletedAt);
+  const acts=el('div','sch-actions');
+  const add=el('button','btn btn-primary','+ Thêm block mẫu'); add.id='addTemplate'; add.onclick=()=>openTemplateModal();
+  acts.appendChild(add);
+  if(!tpls.length){
+    const seed=el('button','btn btn-ghost','Nạp lịch khung mẫu (Phụ lục spec)'); seed.id='loadSeed';
+    seed.onclick=()=>confirmAction('Nạp lịch khung mẫu của founder (27 block mẫu, giờ ngủ và 5 mục tiêu GPA, Gym, Quan hệ, Startup, CLB)? Mục tiêu trùng tên sẽ được dùng lại.', 'Nạp', ()=>{ loadFounderSeed(); softRefresh(); });
+    acts.appendChild(seed);
+  }
+  wrap.appendChild(acts);
+  wrap.appendChild(el('div','banner','Lịch khung là tuần mẫu. Mỗi Chủ nhật app tự sinh block cho tuần tới. Sửa lịch khung không làm thay đổi các tuần đã sinh, và sửa một tuần cụ thể cũng không đổi lịch khung.'));
+  const card=el('div','card tbl-wrap');
+  const order=[1,2,3,4,5,6,0];
+  const rows=tpls.slice().sort((a,b)=>order.indexOf(Number(a.weekday))-order.indexOf(Number(b.weekday)) || a.start.localeCompare(b.start));
+  const tbl=el('table'); tbl.innerHTML='<thead><tr><th>Thứ</th><th>Giờ</th><th>Nhãn</th><th>Loại</th><th>Mục tiêu</th><th>Năng lượng</th><th></th></tr></thead>';
+  const tb=el('tbody');
+  rows.forEach(t=>{
+    const tr=el('tr');
+    tr.innerHTML=`<td>${WEEKDAYS[Number(t.weekday)]}</td><td>${esc(t.start)} - ${esc(t.end)}${t.endNextDay?' (hôm sau)':''}</td>
+      <td>${esc(t.label)}${Number(t.count)>1?' · '+t.count+' block':''}${t.deadlineHours?' · hạn '+t.deadlineHours+'h':''}</td>
+      <td>${(SMART_TYPES[t.type]||{}).icon||''} ${(SMART_TYPES[t.type]||{}).label||esc(t.type)}</td><td>${esc(goalTitle(t.goalId))||'-'}</td>
+      <td>${t.energy==='deep'?'Sâu':t.energy==='light'?'Nhẹ':'-'}</td><td></td>`;
+    const td=tr.lastElementChild;
+    const ed=el('button','btn btn-ghost btn-sm','Sửa'); ed.onclick=()=>openTemplateModal(t);
+    const del=el('button','btn btn-danger btn-sm','Xoá'); del.style.marginLeft='6px';
+    del.onclick=()=>confirmDelete('Xoá block mẫu này? Các tuần đã sinh không bị ảnh hưởng.', async()=>{
+      const i=state.blockTemplates.findIndex(x=>x.id===t.id); state.blockTemplates[i]=GSData.softDelete(t, nowIso());
+      logChanges([mkChange(t.id,'delete',t,null,'user_edit','', 'blockTemplate')]); scheduleSave(); softRefresh(); });
+    td.append(ed, del); tb.appendChild(tr);
+  });
+  if(!rows.length) tb.innerHTML='<tr><td colspan="7" class="empty">Chưa có block mẫu nào</td></tr>';
+  tbl.appendChild(tb); card.appendChild(tbl); wrap.appendChild(card);
+  return wrap;
+}
+function confirmAction(message, yesLabel, onYes){
+  const body=$('#modalBody');
+  body.innerHTML=`<h2>Xác nhận</h2><p class="subtle" style="margin:8px 0 0;">${esc(message)}</p>
+    <div class="modal-actions"><button class="btn btn-ghost" id="cf-no">Huỷ</button><button class="btn btn-primary" id="cf-yes">${esc(yesLabel)}</button></div>`;
+  $('#modalBg').classList.add('show');
+  $m('#cf-no').onclick=closeModal;
+  $m('#cf-yes').onclick=()=>{ closeModal(); onYes(); };
+}
+function openTemplateModal(t){
+  const isEdit=!!t;
+  t=t||{weekday:1, start:'08:00', end:'09:00', type:'flexible', goalId:'', energy:'', label:'', count:1};
+  const body=$('#modalBody');
+  body.innerHTML=`<h2>${isEdit?'Sửa block mẫu':'Thêm block mẫu'} 🧩</h2>
+    <label>Nhãn</label><input id="tp-label" value="${escAttr(t.label)}" placeholder="VD: Học sâu">
+    <div class="field-row">
+      <div><label>Thứ</label><select id="tp-wd">${[1,2,3,4,5,6,0].map(w=>`<option value="${w}" ${Number(t.weekday)===w?'selected':''}>${WEEKDAYS[w]}</option>`).join('')}</select></div>
+      <div><label>Bắt đầu</label><input type="time" id="tp-start" value="${escAttr(t.start)}"></div>
+      <div><label>Kết thúc</label><input type="time" id="tp-end" value="${escAttr(t.end)}"></div>
+    </div>
+    <label class="switch" style="margin-top:8px;"><input type="checkbox" id="tp-next" ${t.endNextDay?'checked':''}> Kết thúc vào ngày hôm sau</label>
+    <div class="field-row">
+      <div><label>Loại</label><select id="tp-type">${typeOptions(t.type)}</select></div>
+      <div><label>Mục tiêu</label><select id="tp-goal">${goalOptions(t.goalId)}</select></div>
+      <div><label>Năng lượng</label><select id="tp-energy">${energyOptions(t.energy)}</select></div>
+    </div>
+    <div class="field-row">
+      <div><label>Số block trong khung</label><input type="number" min="1" max="12" id="tp-count" value="${Number(t.count)||1}"></div>
+      <div><label>Hạn hoàn thành (giờ sau khi bắt đầu, tuỳ chọn)</label><input type="number" min="0" id="tp-dl" value="${t.deadlineHours||''}"></div>
+    </div>
+    <div class="modal-actions"><button class="btn btn-ghost" id="mCancel">Huỷ</button><button class="btn btn-primary" id="mSave">${isEdit?'Lưu':'Thêm'}</button></div>`;
+  $('#modalBg').classList.add('show');
+  $m('#mCancel').onclick=closeModal;
+  $m('#mSave').onclick=()=>{
+    const p={label:$m('#tp-label').value.trim(), weekday:Number($m('#tp-wd').value), start:$m('#tp-start').value, end:$m('#tp-end').value,
+      endNextDay:$m('#tp-next').checked, type:$m('#tp-type').value, goalId:$m('#tp-goal').value, energy:$m('#tp-energy').value,
+      count:Math.max(1,Number($m('#tp-count').value)||1), deadlineHours:$m('#tp-dl').value===''?'':Number($m('#tp-dl').value), updatedAt:nowIso()};
+    if(!p.label){ toast('Đặt nhãn cho block mẫu nhé'); return; }
+    if(!p.start||!p.end){ toast('Chọn giờ bắt đầu và kết thúc'); return; }
+    if(isEdit){ const i=state.blockTemplates.findIndex(x=>x.id===t.id); const before=state.blockTemplates[i]; state.blockTemplates[i]=Object.assign({}, before, p); logChanges([mkChange(t.id,'update',before,state.blockTemplates[i],'user_edit','','blockTemplate')]); }
+    else{ const nt=Object.assign({id:'tpl'+uid().slice(2), createdAt:nowIso()}, p); state.blockTemplates.push(nt); logChanges([mkChange(nt.id,'create',null,nt,'user_edit','','blockTemplate')]); }
+    closeModal(); scheduleSave(); softRefresh(); toast('Đã lưu block mẫu 🧩');
+  };
+}
+/* Nạp dữ liệu seed của spec: dùng lại mục tiêu trùng tên, tạo mục tiêu còn thiếu. */
+function loadFounderSeed(){
+  const seed=GSEngine.founderSeed();
+  const idMap={}; const now=new Date().toISOString();
+  seed.goals.forEach(sg=>{
+    let g=state.goals.find(x=>!x.deletedAt && String(x.title||'').trim().toLowerCase()===sg.title.toLowerCase());
+    if(!g){
+      g={id:uid(), title:sg.title, area:'other', unit:'', startValue:0, targetValue:0, startDate:'', targetDate:'', note:'', phases:[], logs:[],
+        rank:sg.rank, timeBudgetMinPerWeek:sg.timeBudgetMinPerWeek, createdAt:now, updatedAt:now};
+      state.goals.push(g);
+    } else {
+      if(g.rank==null||g.rank==='') g.rank=sg.rank;
+      if(g.timeBudgetMinPerWeek==null||g.timeBudgetMinPerWeek==='') g.timeBudgetMinPerWeek=sg.timeBudgetMinPerWeek;
+      g.updatedAt=now;
+    }
+    idMap[sg.id]=g.id;
+  });
+  seed.templates.forEach(t=>{
+    if(state.blockTemplates.some(x=>x.id===t.id)) return;
+    state.blockTemplates.push(Object.assign({}, t, {goalId: idMap[t.goalId]||'', createdAt:nowIso(), updatedAt:nowIso()}));
+  });
+  state.settings.sleepRules=seed.sleepRules;
+  scheduleSave();
+  toast('Đã nạp lịch khung mẫu 🧩 Bấm "Sinh block tuần này" ở tab Tuần để bắt đầu');
+}
+
+/* ---------- Giờ ngủ & cài đặt lịch ---------- */
+function renderSleepSettings(){
+  const wrap=el('div');
+  const rules=state.settings.sleepRules||[];
+  const ruleFor=wd=>rules.find(r=>(r.wakeWeekdays||[]).map(Number).includes(wd))||{start:'',end:''};
+  const card=el('div','card');
+  card.innerHTML=`<h3 style="margin-top:0;">😴 Giờ ngủ theo từng đêm</h3>
+    <p class="subtle">Mỗi dòng là đêm TRƯỚC buổi sáng của thứ đó. Engine không bao giờ xếp việc vào giờ ngủ. Để trống nếu đêm đó không cố định.</p>
+    <div class="tbl-wrap"><table><thead><tr><th>Sáng thức dậy</th><th>Đi ngủ</th><th>Thức dậy</th></tr></thead><tbody>
+    ${[1,2,3,4,5,6,0].map(wd=>{ const r=ruleFor(wd); return `<tr><td>${WEEKDAYS[wd]}</td><td><input type="time" data-sw="${wd}" value="${escAttr(r.start)}"></td><td><input type="time" data-ew="${wd}" value="${escAttr(r.end)}"></td></tr>`; }).join('')}
+    </tbody></table></div>
+    <button class="btn btn-primary" id="sl-save" style="margin-top:12px;">Lưu giờ ngủ</button>`;
+  wrap.appendChild(card);
+  const s=state.settings;
+  const opt=el('div','card'); opt.style.marginTop='16px';
+  opt.innerHTML=`<h3 style="margin-top:0;">⚙️ Đồng bộ và tự động</h3>
+    <label class="switch"><input type="checkbox" id="st-push" ${s.syncBlocksToCalendar!==false?'checked':''}> Ghi block lên Google Calendar (màu theo loại block)</label>
+    <label class="switch" style="margin-top:8px;"><input type="checkbox" id="st-read" ${s.readCalendar!==false?'checked':''}> Đọc ngược Google Calendar khi mở app và mỗi 5 phút</label>
+    <label class="switch" style="margin-top:8px;"><input type="checkbox" id="st-auto" ${s.autoGenerateWeek!==false?'checked':''}> Mỗi Chủ nhật tự sinh block cho tuần tới từ lịch khung</label>
+    <p class="subtle" style="margin-top:8px;">Lần đọc lịch gần nhất: ${state.calendarSync.lastSyncAt?esc(fmtDate(ymdOf(state.calendarSync.lastSyncAt))+' '+hm(state.calendarSync.lastSyncAt)):'chưa có'}</p>`;
+  wrap.appendChild(opt);
+  setTimeout(()=>{
+    const save=$('#sl-save'); if(!save) return;
+    save.onclick=()=>{
+      const groups={};
+      [0,1,2,3,4,5,6].forEach(wd=>{
+        const st=$(`[data-sw="${wd}"]`).value, en=$(`[data-ew="${wd}"]`).value;
+        if(!st||!en) return;
+        const k=st+'|'+en; (groups[k]=groups[k]||{start:st,end:en,wakeWeekdays:[]}).wakeWeekdays.push(wd);
+      });
+      state.settings.sleepRules=Object.values(groups);
+      scheduleSave(); toast('Đã lưu giờ ngủ 😴');
+    };
+    $('#st-push').onchange=e=>{ state.settings.syncBlocksToCalendar=e.target.checked; scheduleSave(); };
+    $('#st-read').onchange=e=>{ state.settings.readCalendar=e.target.checked; scheduleSave(); };
+    $('#st-auto').onchange=e=>{ state.settings.autoGenerateWeek=e.target.checked; scheduleSave(); };
+  });
+  return wrap;
+}
+
+/* ---------- Màn hình ngân sách tuần ---------- */
+function RENDER_BUDGET(){
+  const wrap=el('div');
+  wrap.appendChild(renderSmartBanners());
+  const {head, wk}=weekNav(softRefresh);
+  wrap.appendChild(head);
+  const wb=GSEngine.weekBudget(state.blocks, activeGoals(), state.checkins, wk, nowIso(), smartCtx());
+  wb.filter(x=>x.warn).forEach(x=>wrap.appendChild(el('div','banner alert-card',
+    `⚠️ Mục tiêu hạng 1 <strong>${esc(x.title)}</strong> dự kiến chỉ đạt ${fmtH(x.projectedMin)} trên ${fmtH(x.targetMin)} tuần này (hụt ${x.shortfallPct}%).`)));
+  const card=el('div','card');
+  card.innerHTML='<h3 style="margin-top:0;">⏱️ Ngân sách giờ theo mục tiêu</h3><div class="subtle">Cam đậm: đã làm thật (theo check-in) · cam nhạt: còn trong kế hoạch · vạch đen: mục tiêu tuần. Xếp theo hạng mục tiêu.</div>';
+  const rows=wb.filter(x=>x.targetMin||x.doneMin||x.remainingMin||x.missedMin);
+  rows.forEach(x=>{
+    const scale=Math.max(x.targetMin||0, x.projectedMin, 1);
+    const r=el('div','budget-row'); r.dataset.goal=x.goalId;
+    r.innerHTML=`<div class="bt"><strong>${esc(x.title)}${x.rawRank?' <span class="subtle">(hạng '+x.rawRank+')</span>':''}</strong>
+      <span>đã làm <strong>${fmtH(x.doneMin)}</strong> · còn trong kế hoạch ${fmtH(x.remainingMin)} · mục tiêu ${x.targetMin!=null?fmtH(x.targetMin):'chưa đặt'}</span></div>
+      <div class="stack-track"><div class="stack-done" style="width:${x.doneMin/scale*100}%"></div>
+        <div class="stack-plan" style="left:${x.doneMin/scale*100}%;width:${x.remainingMin/scale*100}%"></div>
+        ${x.targetMin?`<div class="stack-target" style="left:calc(${Math.min(100,x.targetMin/scale*100)}% - 1px)"></div>`:''}</div>
+      ${x.missedMin||x.unknownMin?`<div class="subtle" style="margin-top:4px;">Bỏ/hụt ${fmtH(x.missedMin)}${x.unknownMin?' · chưa check-in '+fmtH(x.unknownMin):''}</div>`:''}`;
+    card.appendChild(r);
+  });
+  if(!rows.length) card.appendChild(el('div','empty','Chưa có block nào gắn mục tiêu trong tuần này. Đặt hạng và ngân sách giờ trong phần Sửa mục tiêu.'));
+  wrap.appendChild(card);
+
+  const weekIds=new Set(blocksOfWeek(wk).map(b=>b.id));
+  const st=GSEngine.weekStats(state.blocks, state.checkins.filter(c=>weekIds.has(c.blockId)), smartCtx());
+  const tbl=(title, obj, label)=>`<div><h4 style="margin:0 0 6px;">${title}</h4>${Object.keys(obj).length?Object.keys(obj).map(k=>`<div class="rv-row"><span>${label(k)}</span><span>${obj[k].rate}% · ${obj[k].count} lần</span></div>`).join(''):'<div class="subtle">Chưa có check-in</div>'}</div>`;
+  const s=el('div','card'); s.style.marginTop='16px';
+  s.innerHTML=`<h3 style="margin-top:0;">📊 Tỷ lệ hoàn thành tuần này</h3><div class="grid grid-3">
+    ${tbl('Theo loại block', st.byType, k=>(SMART_TYPES[k]||{label:k}).label)}
+    ${tbl('Theo thứ', st.byWeekday, k=>WEEKDAYS[Number(k)])}
+    ${tbl('Theo khung giờ', st.byDaypart, k=>({sang:'Sáng',chieu:'Chiều',toi:'Tối'})[k]||k)}
+    </div><h4>Lý do bỏ hàng đầu</h4>${st.topReasons.map(r=>`<div class="rv-row"><span>${REASONS[r.reasonCode]||esc(r.reasonCode)}</span><span>${r.count} lần</span></div>`).join('')||'<div class="subtle">Chưa có</div>'}`;
+  wrap.appendChild(s);
+  return wrap;
+}
+
 /* ======================= RENDER MAP & INIT ======================= */
 const RENDERERS = { home:RENDER_HOME, planner:RENDER_PLANNER, matrix:RENDER_MATRIX, calendar:RENDER_CALENDAR,
+  schedule:RENDER_SCHEDULE, budget:RENDER_BUDGET,
   list:RENDER_LIST, people:RENDER_PEOPLE, notes:RENDER_NOTES, stats:RENDER_STATS, settings:RENDER_SETTINGS };
 
 $('#themeToggle').onclick=async()=>{

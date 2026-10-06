@@ -1,0 +1,365 @@
+/* Test Playwright cho Lịch thông minh (Mốc 2, 3, 4) trên app thật, Google API giả lập.
+   Đồng hồ trình duyệt cố định theo kịch bản của spec, múi giờ Asia/Ho_Chi_Minh.
+   Chạy: node test_smart.js (cần playwright; xem HUONG_DAN.md) */
+const { chromium } = require('playwright');
+const { createFakeGoogle, createAppServer, launchOptions } = require('./test_fake_google');
+
+const PORT = 8952;
+const URL0 = `http://localhost:${PORT}/`;
+const G = createFakeGoogle();
+const { server } = createAppServer(PORT, { signedIn: true });
+
+/* File dữ liệu bản cũ (chưa có schemaVersion), đúng định dạng app đang ghi trước Mốc 2 */
+const OLD_FILE = JSON.stringify({
+  tasks: [{ id: 'old-t1', title: 'Việc cũ phải còn', dueDate: '2026-10-10', quadrant: 2, status: 'todo', subtasks: [], calendarEventId: '', createdAt: '2026-09-01T00:00:00.000Z', updatedAt: '2026-09-01T00:00:00.000Z' }],
+  people: [], notes: [{ id: 'n1', content: 'ghi chú cũ', category: 'chung' }],
+  goals: [{ id: 'g-ielts', title: 'IELTS', area: 'study', unit: 'band', startValue: 5, targetValue: 7, startDate: '2026-08-01', targetDate: '2027-08-01', phases: [] }],
+  profile: { name: 'Trí', avatarEmoji: '🍊' },
+});
+G.driveCreate('greysteel-tasks-data.json', OLD_FILE);
+
+const at = s => new Date(s); // ISO có múi giờ
+function assert(c, m) { if (!c) throw new Error('ASSERT FAILED: ' + m); }
+
+(async () => {
+  await new Promise(r => server.listen(PORT, r));
+  const browser = await chromium.launch(launchOptions());
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, timezoneId: 'Asia/Ho_Chi_Minh', locale: 'vi-VN' });
+  await G.install(context);
+  await context.grantPermissions(['notifications'], { origin: URL0.slice(0, -1) });
+  // Ghi lại Web Notification thay vì hiện thật
+  await context.addInitScript(() => {
+    window.__notes = [];
+    window.Notification = class { constructor(t, o) { window.__notes.push({ title: t, body: o && o.body }); } static get permission() { return 'granted'; } static requestPermission() { return Promise.resolve('granted'); } close() {} };
+  });
+  await context.clock.setFixedTime(at('2026-10-05T07:00:00+07:00'));
+
+  const errors = [];
+  const results = [];
+  const step = async (name, fn) => {
+    try { await fn(); results.push('OK   ' + name); }
+    catch (e) { results.push('FAIL ' + name + ' :: ' + e.message.split('\n')[0]); }
+  };
+  const watch = p => { p.on('pageerror', e => errors.push('PAGEERROR: ' + e.message)); p.on('console', m => { if (m.type() === 'error' && !/ERR_|401|404|410|500/.test(m.text())) errors.push('CONSOLE: ' + m.text()); }); };
+  const idle = async p => {
+    for (let i = 0; i < 3; i++) {
+      await p.evaluate(() => calQueue);
+      await p.waitForFunction(() => !state.saving && !saveInFlight && !changelogFlushing && !calPulling, null, { timeout: 15000 });
+      await p.waitForTimeout(400);
+    }
+  };
+  const open = async (p) => {
+    await p.goto(URL0);
+    await p.waitForFunction(() => state.dataLoaded === true, null, { timeout: 15000 });
+    await idle(p);
+  };
+  const nav = async (p, label) => { await p.click(`.navbtn:has-text("${label}")`); await p.waitForTimeout(250); };
+  const closeAnyModal = async p => { if (await p.isVisible('#modalBg.show')) { await p.keyboard.press('Escape'); await p.waitForTimeout(300); } };
+
+  let page = await context.newPage(); watch(page);
+  await open(page);
+
+  /* ======================= MỐC 2: dữ liệu ======================= */
+  await step('Mở file bản cũ bình thường, chưa ghi gì khi chưa thao tác', async () => {
+    assert(await page.isVisible('#appRoot'), 'phải vào app');
+    assert(await page.evaluate(() => state.tasks.some(t => t.id === 'old-t1')), 'việc cũ phải còn');
+    // Mở app có thể ghi ngay (lưu syncToken của Calendar). Nếu đã ghi thì backup phải có trước.
+    if (G.dataFile().version > 1) {
+      const bk = G.drive.calls.findIndex(c => c.startsWith('POST /upload'));
+      const w = G.drive.calls.findIndex(c => c.startsWith('PATCH /upload/drive/v3/files/f1'));
+      assert(bk >= 0 && bk < w, 'ghi file chính trước khi có backup');
+      assert(G.driveByName('greysteel-tasks-backup-v1-2026-10-05.json').content === OLD_FILE, 'backup nguyên văn');
+    }
+  });
+
+  await step('Nạp lịch khung mẫu: backup bản cũ trước, rồi mới ghi bản đã migrate', async () => {
+    await nav(page, 'Lịch thông minh');
+    await page.click('[data-tab="templates"]');
+    await page.click('#loadSeed');
+    await page.click('#cf-yes');
+    await idle(page);
+    const bk = G.driveByName('greysteel-tasks-backup-v1-2026-10-05.json');
+    assert(bk, 'phải có file backup');
+    assert(bk.content === OLD_FILE, 'backup phải giữ nguyên văn file cũ');
+    const backupIdx = G.drive.calls.findIndex(c => c.startsWith('POST /upload'));
+    const firstPatch = G.drive.calls.findIndex(c => c.startsWith('PATCH /upload/drive/v3/files/f1'));
+    assert(backupIdx >= 0 && backupIdx < firstPatch, 'backup phải được tạo trước lần ghi file chính');
+    const d = G.data();
+    assert(d.schemaVersion === 2, 'file phải lên schemaVersion 2');
+    assert(d.tasks.some(t => t.id === 'old-t1' && t.title === 'Việc cũ phải còn'), 'không mất việc cũ');
+    assert(d.notes[0].content === 'ghi chú cũ');
+    assert(d.blockTemplates.length === 27, 'phải có 27 block mẫu, thấy ' + d.blockTemplates.length);
+    const gpa = d.goals.find(g => g.title === 'GPA');
+    assert(gpa && gpa.rank === 1 && gpa.timeBudgetMinPerWeek === 1080, 'mục tiêu GPA hạng 1, 18 giờ');
+    assert(d.goals.find(g => g.id === 'g-ielts').rank === null, 'mục tiêu cũ có rank mặc định null');
+    assert(d.settings.sleepRules.length === 2);
+  });
+
+  await step('Sinh block tuần: block lên Google Calendar có extendedProperties.private, colorId, lưu gcalEventId', async () => {
+    await page.click('[data-tab="week"]');
+    await page.click('#genWeek');
+    await idle(page);
+    const d = G.data();
+    const blocks = d.blocks.filter(b => b.source === 'template');
+    assert(blocks.length === 39, 'tuần mẫu có 39 block, thấy ' + blocks.length);
+    const evs = G.appEvents();
+    assert(evs.length === blocks.length, `mỗi block một sự kiện, thấy ${evs.length}/${blocks.length}`);
+    const b = blocks.find(x => x.id === 'tpl-t6-hocsau-2026-10-09-1');
+    assert(b.gcalEventId && b.gcalEtag, 'block phải lưu gcalEventId và etag');
+    const ev = G.cal.events.get(b.gcalEventId);
+    assert(ev.extendedProperties.private.gsBlockId === b.id && ev.extendedProperties.private.gsType === 'protected', 'dấu của app');
+    assert(ev.colorId === '11', 'màu theo loại protected');
+    assert(await page.locator('.blk').count() >= 39, 'giao diện tuần phải hiện block');
+  });
+
+  await step('Changelog ghi vào file riêng theo tháng (chỉ ghi thêm), hàng chờ được dọn', async () => {
+    const f = G.driveByName('changelog-2026-10.json');
+    assert(f, 'phải có changelog-2026-10.json');
+    const entries = JSON.parse(f.content).entries;
+    assert(entries.filter(e => e.cause === 'template').length === 39, 'mỗi block sinh từ mẫu có 1 dòng changelog');
+    assert(G.data().changelogOutbox.length === 0, 'outbox đã được dọn sau khi ghi');
+  });
+
+  await step('Chống ghi đè hai thiết bị: Drive đổi version thì đọc lại, gộp theo id rồi mới lưu', async () => {
+    const remote = G.data();
+    remote.tasks.push({ id: 'from-B', title: 'Từ máy khác', status: 'todo', quadrant: 4, subtasks: [], updatedAt: '2026-10-05T00:30:00.000Z' });
+    remote.notes[0].content = 'máy B sửa ghi chú';
+    G.writeData(remote);
+    // Máy này sửa thứ khác
+    await page.evaluate(() => { addNote({ content: 'ghi chú máy A', category: 'chung' }); });
+    await idle(page);
+    const d = G.data();
+    assert(d.tasks.some(t => t.id === 'from-B'), 'giữ việc máy B thêm');
+    assert(d.notes.some(n => n.content === 'ghi chú máy A'), 'giữ ghi chú máy A thêm');
+    assert(d.notes.some(n => n.content === 'máy B sửa ghi chú'), 'giữ sửa đổi của máy B');
+    assert(d.blocks.length >= 39, 'không mất block');
+    assert(await page.evaluate(() => state.tasks.some(t => t.id === 'from-B')), 'giao diện máy A cũng có việc từ máy B');
+  });
+
+  /* ======================= MỐC 4: phát sinh -> duyệt ======================= */
+  const addDisruption = async (p, f) => {
+    await nav(p, 'Lịch thông minh');
+    await p.click('[data-tab="week"]');
+    await p.click('#addDisruption');
+    await p.fill('#d-title', f.title);
+    await p.fill('#d-dur', String(f.dur));
+    await p.selectOption('#d-prio', String(f.prio));
+    await p.selectOption('#d-mode', f.mode);
+    if (f.mode === 'fixed_time') { await p.fill('#d-fdate', f.date); await p.fill('#d-ftime', f.time); }
+    else { await p.fill('#d-wsdate', f.date); await p.fill('#d-wstime', f.from); await p.fill('#d-wedate', f.date); await p.fill('#d-wetime', f.to); }
+    await p.click('#mSave');
+    await p.waitForSelector('#rv-approve');
+  };
+
+  await step('KB1 qua giao diện: Họp BCS vào khung đệm, không dời gì; Duyệt thì lưu và lên Calendar', async () => {
+    await addDisruption(page, { title: 'Họp BCS', dur: 60, prio: 5, mode: 'fixed_time', date: '2026-10-06', time: '18:00' });
+    const pl = await page.innerText('#rv-placement');
+    assert(/18:00 đến 19:00/.test(pl) && /khung đệm/.test(pl), 'phương án: ' + pl);
+    assert(await page.locator('.rv-moved').count() === 0, 'không block nào bị dời');
+    assert(/Block bị mất \(0\)/.test(await page.innerText('#modalBody')));
+    assert(await page.locator('#rv-budget').count() === 1, 'phải có bảng ngân sách trước/sau');
+    await page.click('#rv-approve');
+    await idle(page);
+    const d = G.data();
+    const dis = d.disruptions.find(x => x.title === 'Họp BCS');
+    assert(dis && dis.resolution === 'accepted', 'disruption phải được lưu là accepted');
+    const blk = d.blocks.find(b => b.disruptionId === dis.id);
+    assert(blk && blk.type === 'fixed' && blk.start === '2026-10-06T18:00:00+07:00', 'block mới');
+    assert(blk.gcalEventId, 'block phát sinh cũng lên Calendar');
+    const log = JSON.parse(G.driveByName('changelog-2026-10.json').content).entries;
+    assert(log.some(e => e.cause === 'disruption' && e.causeId === dis.id), 'changelog cause disruption');
+  });
+
+  await step('KB2 qua giao diện: đệm đã kín, CLB ưu tiên 5 bị chặn, có 3 khung thay thế, nút Duyệt bị khoá; Bỏ thì lưu rejected', async () => {
+    // làm kín phần còn lại của khung đệm 17:45 đến 19:30 (18:00 đến 19:00 đã có Họp BCS)
+    await addDisruption(page, { title: 'Họp lớp', dur: 15, prio: 3, mode: 'fixed_time', date: '2026-10-06', time: '17:45' });
+    await page.click('#rv-approve'); await idle(page);
+    await addDisruption(page, { title: 'Họp nhóm', dur: 30, prio: 3, mode: 'fixed_time', date: '2026-10-06', time: '19:00' });
+    await page.click('#rv-approve'); await idle(page);
+    await addDisruption(page, { title: 'Họp CLB', dur: 90, prio: 5, mode: 'flexible', date: '2026-10-06', from: '17:00', to: '21:00' });
+    assert(await page.isVisible('#rv-conflict'), 'phải hiện cảnh báo xung đột');
+    assert(await page.locator('[data-alt]').count() === 3, 'phải có 3 khung thay thế');
+    assert(await page.isDisabled('#rv-approve'), 'không cho duyệt khi không có khung hợp lệ');
+    await page.click('#rv-reject'); await idle(page);
+    assert(G.data().disruptions.find(x => x.title === 'Họp CLB').resolution === 'rejected');
+  });
+
+  await step('KB3 qua giao diện: ưu tiên 1 chiếm block bảo vệ thứ 6, 2 block bị dời được cập nhật cả trên Calendar', async () => {
+    await addDisruption(page, { title: 'Việc gấp', dur: 120, prio: 1, mode: 'fixed_time', date: '2026-10-09', time: '09:00' });
+    assert(await page.locator('.rv-moved').count() === 2, 'phải dời 2 block');
+    const txt = await page.innerText('#modalBody');
+    assert(/15:10/.test(txt), 'một block sang khung đệm 15:10');
+    await page.click('#rv-approve'); await idle(page);
+    const b = G.data().blocks.find(x => x.id === 'tpl-t6-hocsau-2026-10-09-2');
+    assert(b.start === '2026-10-09T15:10:00+07:00', 'block đã dời: ' + b.start);
+    assert(G.cal.events.get(b.gcalEventId).start.dateTime === '2026-10-09T15:10:00+07:00', 'sự kiện Google cũng được dời');
+  });
+
+  await step('Sửa: mở lại form với dữ liệu cũ, kết quả lưu là edited', async () => {
+    await addDisruption(page, { title: 'Gọi điện', dur: 30, prio: 4, mode: 'fixed_time', date: '2026-10-08', time: '12:15' });
+    await page.click('#rv-edit');
+    assert(await page.inputValue('#d-title') === 'Gọi điện', 'form giữ dữ liệu');
+    await page.fill('#d-ftime', '12:30');
+    await page.click('#mSave'); await page.waitForSelector('#rv-approve');
+    await page.click('#rv-approve'); await idle(page);
+    const dis = G.data().disruptions.find(x => x.title === 'Gọi điện');
+    assert(dis.resolution === 'edited', 'resolution phải là edited, thấy ' + dis.resolution);
+    assert(dis.fixedStart === '2026-10-08T12:30:00+07:00');
+  });
+
+  /* ======================= MỐC 3: đọc ngược Google Calendar ======================= */
+  await step('Chống vòng lặp: mở lại app, sự kiện của chính app không sinh thay đổi gcal_sync', async () => {
+    await page.reload(); await page.waitForFunction(() => state.dataLoaded); await idle(page);
+    await closeAnyModal(page);
+    const log = JSON.parse(G.driveByName('changelog-2026-10.json').content).entries;
+    assert(!log.some(e => e.cause === 'gcal_sync'), 'không được có thay đổi gcal_sync khi chỉ đọc lại sự kiện của app');
+    const lists = G.cal.calls.filter(c => c.startsWith('GET'));
+    assert(lists.some(c => /timeMin=/.test(c) && !/syncToken=/.test(c)), 'lần đầu đồng bộ đầy đủ');
+    assert(lists.some(c => /syncToken=sync-/.test(c) && !/timeMin=/.test(c)), 'lần sau dùng syncToken, không kèm timeMin');
+  });
+
+  await step('KB4: lời mời họp 13:30 đến 14:30 thứ 5 chồng block học: lưu fixed external, hiện xung đột, chưa duyệt thì giữ nguyên', async () => {
+    G.addExternal('Họp mời từ Google', '2026-10-08T13:30:00+07:00', '2026-10-08T14:30:00+07:00');
+    await page.evaluate(() => smartTick()); // vòng kiểm tra 5 phút
+    await idle(page);
+    const d = G.data();
+    const ext = d.blocks.find(b => b.source === 'external');
+    assert(ext && ext.type === 'fixed', 'phải lưu block external fixed');
+    const pend = d.disruptions.filter(x => x.source === 'external' && !x.resolution);
+    assert(pend.length === 1, 'phải có 1 phương án đang chờ duyệt');
+    assert(d.blocks.find(b => b.id === 'tpl-t5-hoc-2026-10-08-1').start === '2026-10-08T13:15:00+07:00', 'chưa duyệt thì block học giữ nguyên');
+    await nav(page, 'Lịch thông minh');
+    assert(await page.locator('.blk.conflict').count() >= 2, 'giao diện phải đánh dấu xung đột');
+    assert(await page.evaluate(() => window.__notes.some(n => /chồng/.test(n.title))), 'phải có Web Notification báo xung đột');
+    await page.click('.banner button:has-text("Xem phương án")');
+    assert(await page.locator('.rv-moved').count() === 2, 'phương án dời 2 block học');
+    assert(await page.locator('#rv-edit').count() === 0, 'sự kiện Google không có nút Sửa');
+    await page.click('#rv-approve'); await idle(page);
+    assert(await page.locator('.blk.conflict').count() === 0, 'duyệt xong hết xung đột');
+    assert(G.data().disruptions.find(x => x.source === 'external').resolution === 'accepted');
+  });
+
+  await step('Người dùng kéo block trên Google: lần đồng bộ sau cập nhật block, changelog gcal_sync', async () => {
+    const b = G.data().blocks.find(x => x.id === 'tpl-t2-truocgt-2026-10-05-1');
+    G.moveEvent(b.gcalEventId, '2026-10-05T20:00:00+07:00', '2026-10-05T20:45:00+07:00');
+    await page.evaluate(() => smartTick()); await idle(page);
+    assert(G.data().blocks.find(x => x.id === b.id).start === '2026-10-05T20:00:00+07:00', 'block phải theo giờ mới');
+    const log = JSON.parse(G.driveByName('changelog-2026-10.json').content).entries;
+    assert(log.some(e => e.cause === 'gcal_sync' && e.entityId === b.id), 'changelog gcal_sync');
+  });
+
+  await step('Lỗi 410 (syncToken hết hạn): đồng bộ đầy đủ lại, app vẫn chạy', async () => {
+    G.cal.gone = true;
+    const before = G.cal.calls.length;
+    await page.evaluate(() => smartTick()); await idle(page);
+    const calls = G.cal.calls.slice(before).filter(c => c.startsWith('GET'));
+    assert(calls.length >= 2 && /syncToken=/.test(calls[0]) && /timeMin=/.test(calls[1]), 'sau 410 phải gọi lại không syncToken: ' + calls.join(' | '));
+    assert(/^sync-\d+$/.test(G.data().calendarSync.syncToken), 'lưu syncToken mới');
+    assert(!G.data().blocks.filter(b => b.source === 'external').some(b => b.deletedAt), 'không xoá nhầm sự kiện ngoài còn tồn tại');
+  });
+
+  /* ======================= MỐC 4: check-in ======================= */
+  await step('Gán 2 việc vào block GT còn tồn thứ 4', async () => {
+    await page.evaluate(async () => {
+      await addTask({ title: 'GT Câu 12 (a,b,e,f)', quadrant: 2, status: 'todo', estBlocks: 1, deadline: '2026-10-08' });
+      await addTask({ title: 'GT Câu 13', quadrant: 2, status: 'todo', estBlocks: 1, deadline: '2026-10-08' });
+    });
+    await nav(page, 'Lịch thông minh');
+    await page.click('.blk[data-block-id="tpl-t4-gtton-2026-10-07-1"] button:has-text("Gán việc")');
+    await page.check('label:has-text("GT Câu 12") input');
+    await page.check('label:has-text("GT Câu 13") input');
+    await page.click('#mSave'); await idle(page);
+    assert(G.data().tasks.filter(t => t.blockId === 'tpl-t4-gtton-2026-10-07-1').length === 2);
+  });
+
+  await step('Web Notification khi block kết thúc lúc app đang mở', async () => {
+    await context.clock.setFixedTime(at('2026-10-07T15:05:00+07:00'));
+    await page.evaluate(() => { window.__notes = []; smartMinuteTick(); });
+    const notes = await page.evaluate(() => window.__notes);
+    assert(notes.some(n => /GT còn tồn/.test(n.title)), 'phải báo block GT còn tồn vừa kết thúc: ' + JSON.stringify(notes));
+  });
+
+  await step('KB6 qua giao diện: mở app thấy hàng chờ check-in; Bỏ (mệt) -> 2 việc về hàng chờ -> đề xuất chỗ mới -> Duyệt', async () => {
+    await context.clock.setFixedTime(at('2026-10-07T15:30:00+07:00'));
+    await page.reload(); await page.waitForFunction(() => state.dataLoaded); await idle(page);
+    assert(await page.isVisible('.ci-item'), 'mở app phải hiện hàng chờ check-in');
+    const item = page.locator('.ci-item[data-ci="tpl-t4-gtton-2026-10-07-1"]');
+    await item.locator('button[data-r="skipped"]').click();
+    await item.locator('.ci-reason').selectOption('tired');
+    await item.locator('.ci-save').click();
+    await page.click('#mCancel'); // để sau phần còn lại -> sang đề xuất xếp lại
+    await page.waitForSelector('#ts-approve');
+    const rows = await page.locator('.ts-row').allInnerTexts();
+    assert(rows.length === 2, 'đề xuất chỗ cho 2 việc: ' + rows.join(' | '));
+    assert(/18:00/.test(rows[0]), 'việc đầu vào khung đệm tối thứ 4: ' + rows[0]);
+    await page.click('#ts-approve'); await idle(page);
+    const d = G.data();
+    const ck = d.checkins.find(c => c.blockId === 'tpl-t4-gtton-2026-10-07-1');
+    assert(ck && ck.result === 'skipped' && ck.reasonCode === 'tired' && ck.completedRatio === 0, 'check-in phải lưu đủ');
+    assert(d.blocks.find(b => b.id === 'tpl-t4-gtton-2026-10-07-1').status === 'skipped');
+    const ts = d.tasks.filter(t => /^GT Câu 1[23]/.test(t.title));
+    assert(ts.every(t => t.blockId && t.blockId !== 'tpl-t4-gtton-2026-10-07-1'), 'việc đã được xếp vào block mới');
+    assert(ts.every(t => d.blocks.find(b => b.id === t.blockId).gcalEventId), 'block mới lên Calendar');
+  });
+
+  await step('Check-in một phần 50% từ thẻ block, lý do mất tập trung', async () => {
+    await closeAnyModal(page);
+    await nav(page, 'Lịch thông minh');
+    await page.click('.blk[data-block-id="tpl-t4-baids-2026-10-07-1"] button:has-text("Check-in")');
+    const item = page.locator('.ci-item[data-ci="tpl-t4-baids-2026-10-07-1"]');
+    await item.locator('button[data-r="partial"]').click();
+    await item.locator('.ci-ratio').selectOption('0.5');
+    await item.locator('.ci-reason').selectOption('distracted');
+    await item.locator('.ci-save').click(); await idle(page);
+    const ck = G.data().checkins.find(c => c.blockId === 'tpl-t4-baids-2026-10-07-1');
+    assert(ck.result === 'partial' && ck.completedRatio === 0.5 && ck.reasonCode === 'distracted');
+  });
+
+  await step('Màn hình ngân sách tuần: thanh theo mục tiêu xếp theo hạng, block bỏ không cộng vào đã làm', async () => {
+    await closeAnyModal(page);
+    await nav(page, 'Ngân sách tuần');
+    const rows = await page.locator('.budget-row').evaluateAll(els => els.map(e => e.dataset.goal));
+    const goals = await page.evaluate(() => state.goals.map(g => ({ id: g.id, title: g.title })));
+    const gpaId = goals.find(g => g.title === 'GPA').id, gymId = goals.find(g => g.title === 'Gym').id;
+    assert(rows.indexOf(gpaId) === 0 && rows.indexOf(gymId) === 1, 'GPA hạng 1 đứng đầu, Gym thứ hai');
+    const txt = await page.innerText(`.budget-row[data-goal="${gpaId}"]`);
+    assert(/đã làm/.test(txt) && /mục tiêu 18 giờ/.test(txt), txt);
+    const wb = await page.evaluate(() => GSEngine.weekBudget(state.blocks, state.goals, state.checkins, '2026-10-05', nowIso(), smartCtx()).find(x => x.title === 'GPA'));
+    assert(wb.doneMin === 53, 'đã làm = 50% của 105 phút bài ĐS (làm tròn), thấy ' + wb.doneMin);
+    assert(/Mất tập trung|Mệt/.test(await page.innerText('#views')), 'thống kê lý do bỏ');
+  });
+
+  await step('Khung đệm trống: hỏi học thêm hay nghỉ; chọn Học thêm tạo block cho mục tiêu hạng 1', async () => {
+    // Tạo một khung đệm trống ở tuần sau rồi xét lúc nó đang diễn ra
+    await page.evaluate(() => { state.blocks.push({ id: 'buf-test', type: 'buffer', label: 'Khung đệm', start: '2026-10-12T17:45:00+07:00', end: '2026-10-12T19:30:00+07:00', status: 'planned', source: 'manual', goalId: '' }); });
+    await context.clock.setFixedTime(at('2026-10-12T18:00:00+07:00'));
+    await nav(page, 'Trang chủ');
+    await page.click('.banner button:has-text("Học thêm")'); await idle(page);
+    const d = G.data();
+    const gpaId = d.goals.find(g => g.title === 'GPA').id;
+    const nb = d.blocks.find(b => b.label === 'Học thêm (khung đệm)');
+    assert(nb && nb.goalId === gpaId && nb.end === '2026-10-12T19:30:00+07:00', 'block học thêm cho GPA');
+    assert(d.blocks.find(b => b.id === 'buf-test').bufferChoice === 'study');
+  });
+
+  await step('Giao diện Lịch thông minh trên điện thoại không tràn ngang', async () => {
+    const m = await context.newPage(); watch(m);
+    await m.setViewportSize({ width: 390, height: 844 });
+    await m.goto(URL0); await m.waitForFunction(() => state.dataLoaded); await idle(m);
+    await closeAnyModal(m);
+    for (const label of ['Lịch thông minh', 'Ngân sách tuần']) {
+      await m.click(`.navbtn:has-text("${label}")`); await m.waitForTimeout(300);
+      const w = await m.evaluate(() => document.documentElement.scrollWidth);
+      assert(w <= 400, `${label}: scrollWidth=${w}`);
+    }
+    await m.close();
+  });
+
+  console.log('\n===== KẾT QUẢ LỊCH THÔNG MINH =====');
+  results.forEach(r => console.log(r));
+  console.log('\nLỗi JS:', errors.length ? JSON.stringify(errors, null, 2) : 'không có');
+  const failed = results.filter(r => r.startsWith('FAIL')).length;
+  console.log(failed === 0 && !errors.length ? `\n>>> TẤT CẢ ${results.length} TEST ĐỀU PASS` : `\n>>> ${failed} TEST THẤT BẠI`);
+  await browser.close(); server.close();
+  process.exit(failed === 0 && errors.length === 0 ? 0 : 1);
+})();

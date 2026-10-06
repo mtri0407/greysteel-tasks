@@ -8,14 +8,16 @@ App quản lý công việc và **lộ trình mục tiêu dài hạn**. Ai đăn
 
 ```
 public/               <- phần chạy trên trình duyệt (Netlify publish thư mục này)
-  index.html          <- toàn bộ app
+  index.html          <- toàn bộ giao diện app
+  engine.js, datastore.js, calsync.js   <- logic Lịch thông minh (xem mục riêng bên dưới)
   icon.svg            <- logo quả cam
   icon-192.png, icon-512.png
   manifest.json       <- để cài như app trên điện thoại
 netlify/functions/    <- phần chạy trên máy chủ, giữ phiên đăng nhập an toàn
   _lib.js, auth-callback.js, refresh-token.js, logout.js, _test.js
 netlify.toml          <- cấu hình triển khai
-test_full.js, test_logic.js   <- bộ kiểm thử (không được đưa lên mạng)
+test_*.js, test_fake_google.js   <- bộ kiểm thử (không được đưa lên mạng)
+docs/SPEC-lich-thong-minh.md     <- spec tính năng Lịch thông minh
 ```
 
 ---
@@ -136,14 +138,47 @@ Có hai lớp nhắc nhở:
 
 ---
 
+## Lịch thông minh xử lý phát sinh
+
+Spec: `docs/SPEC-lich-thong-minh.md`. Phần logic nằm trong 3 file riêng, `index.html` chỉ gọi hàm và vẽ giao diện:
+
+```
+public/engine.js      <- engine xếp lịch và xử lý phát sinh (hàm thuần, trọng số trong ENGINE_CONFIG)
+public/datastore.js   <- migrate file cũ, gộp hai thiết bị, changelog theo tháng
+public/calsync.js     <- đồng bộ hai chiều Google Calendar (phần thuần)
+```
+
+**Bắt đầu dùng:**
+
+1. Vào **Lộ trình mục tiêu**, bấm Sửa từng mục tiêu để đặt **Hạng ưu tiên** (1 là cao nhất) và **Ngân sách giờ mỗi tuần**.
+2. Vào **Lịch thông minh > Lịch khung**, thêm block mẫu cho một tuần (hoặc bấm "Nạp lịch khung mẫu" để dùng lịch trong Phụ lục của spec).
+3. Vào tab **Giờ ngủ & cài đặt**, chỉnh giờ ngủ từng đêm. Engine không bao giờ xếp việc vào giờ ngủ.
+4. Ở tab **Tuần**, bấm "Sinh block tuần này từ lịch khung". Từ đó mỗi Chủ nhật app tự sinh block cho tuần tới.
+5. Có việc phát sinh thì bấm **+ Thêm việc phát sinh**, xem phương án rồi chọn Duyệt / Sửa / Bỏ. App không bao giờ tự sửa lịch.
+6. Mỗi lần mở app sẽ hiện các block đã kết thúc mà chưa check-in. Xem kết quả ở **Ngân sách tuần**.
+
+**Dữ liệu:** lần đầu mở bản mới, trước lần ghi đầu tiên app lưu nguyên file cũ thành `greysteel-tasks-backup-v1-NGÀY.json` trong appDataFolder. Changelog nằm ở các file `changelog-YYYY-MM.json` cùng thư mục. Hai thiết bị cùng sửa thì app đọc lại version trên Drive và gộp theo id (bản có `updatedAt` mới hơn thắng).
+
+---
+
 ## Kiểm thử
 
 Trước khi triển khai bản chỉnh sửa, có thể chạy lại toàn bộ bộ kiểm thử:
 
 ```
 node test_logic.js                    # 20 test cho phần tính toán lộ trình
+node test_engine.js                   # 29 test engine lịch thông minh (6 kịch bản nghiệm thu + luật cứng)
+node test_data.js                     # 15 test migrate, gộp hai thiết bị, changelog
+node test_calsync.js                  # 12 test đồng bộ Google Calendar
 node netlify/functions/_test.js       # 15 test cho phần đăng nhập
 node test_full.js                     # 23 test giao diện thật bằng trình duyệt
+node test_smart.js                    # 20 test giao diện lịch thông minh bằng trình duyệt
+```
+
+Hai test trình duyệt cần Playwright và dùng Google API giả lập trong `test_fake_google.js` (không gọi Google thật). Nếu Playwright được cài ở thư mục khác (ví dụ `C:\Users\Admin\node_modules`), chạy kèm `NODE_PATH`:
+
+```
+NODE_PATH=C:/Users/Admin/node_modules node test_smart.js
 ```
 
 Nên chạy `test_logic.js` với nhiều múi giờ để chắc chắn không có lỗi lệch ngày:
@@ -151,6 +186,7 @@ Nên chạy `test_logic.js` với nhiều múi giờ để chắc chắn không 
 ```
 TZ=Asia/Ho_Chi_Minh node test_logic.js
 TZ=UTC node test_logic.js
+TZ=UTC node test_engine.js
 ```
 
 ---

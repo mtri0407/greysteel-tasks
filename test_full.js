@@ -1,61 +1,23 @@
 const { chromium } = require('playwright');
 const path = require('path');
-const http = require('http');
 const fs = require('fs');
 
 const PORT = 8951;
 const CLIENT_ID = 'fake-client-id.apps.googleusercontent.com';
 
-// Trạng thái giả lập phía "server"
-let sessionCookieIssued = false;   // đã đăng nhập lần đầu chưa (mô phỏng cookie httpOnly)
-let driveFile = null;              // nội dung file dữ liệu trên Drive
-let calendarEvents = 0;
-
-const server = http.createServer((req, res) => {
-  const url = new URL(req.url, `http://localhost:${PORT}`);
-
-  // Giả lập Netlify Function: refresh-token
-  if (url.pathname === '/.netlify/functions/refresh-token') {
-    if (!sessionCookieIssued) {
-      res.writeHead(401, { 'Content-Type': 'application/json' });
-      return res.end(JSON.stringify({ ok: false, error: 'no_session' }));
-    }
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    return res.end(JSON.stringify({ ok: true, access_token: 'AT_REFRESHED', expires_in: 3600 }));
-  }
-  // Giả lập Netlify Function: logout
-  if (url.pathname === '/.netlify/functions/logout') {
-    sessionCookieIssued = false;
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    return res.end(JSON.stringify({ ok: true }));
-  }
-  // Giả lập auth-callback: Google redirect về đây rồi quay lại app với #at=...
-  if (url.pathname === '/.netlify/functions/auth-callback') {
-    sessionCookieIssued = true;
-    res.writeHead(302, { Location: `http://localhost:${PORT}/#at=AT_FIRST&exp=3600` });
-    return res.end();
-  }
-  if (url.pathname === '/icon.svg') {
-    res.writeHead(200, { 'Content-Type': 'image/svg+xml' });
-    return res.end(fs.readFileSync(path.join(__dirname, 'public', 'icon.svg')));
-  }
-  if (url.pathname === '/manifest.json') {
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    return res.end(fs.readFileSync(path.join(__dirname, 'public', 'manifest.json')));
-  }
-  // index.html với CLIENT_ID đã điền sẵn
-  let html = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8');
-  html = html.replace('GOOGLE_CLIENT_ID: ""', `GOOGLE_CLIENT_ID: "${CLIENT_ID}"`);
-  res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-  res.end(html);
-});
+/* Google API và Netlify Functions giả lập dùng chung (test_fake_google.js).
+   Cài lên cả browser context nên mọi trang mở trong test đều không gọi Google thật. */
+const { createFakeGoogle, createAppServer, launchOptions } = require('./test_fake_google');
+const G = createFakeGoogle();
+const { server, st } = createAppServer(PORT);
 
 function assert(cond, msg) { if (!cond) throw new Error('ASSERT FAILED: ' + msg); }
 
 (async () => {
   await new Promise(r => server.listen(PORT, r));
-  const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
+  const browser = await chromium.launch(launchOptions());
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  await G.install(context);
   const page = await context.newPage();
   const errors = [];
   page.on('pageerror', e => errors.push('PAGEERROR: ' + e.message));
@@ -69,39 +31,6 @@ function assert(cond, msg) { if (!cond) throw new Error('ASSERT FAILED: ' + msg)
   await page.route('https://accounts.google.com/o/oauth2/v2/auth**', route => {
     route.fulfill({ status: 302, headers: { Location: `http://localhost:${PORT}/.netlify/functions/auth-callback?code=good&state=x` }, body: '' });
   });
-  await page.route('https://www.googleapis.com/oauth2/v3/userinfo', route => {
-    route.fulfill({ status: 200, contentType: 'application/json',
-      body: JSON.stringify({ email: 'demo@gmail.com', name: 'Minh Tri', picture: '' }) });
-  });
-  await page.route('https://www.googleapis.com/drive/v3/files**', route => {
-    const req = route.request(), url = req.url();
-    if (req.method() === 'GET' && url.includes('spaces=appDataFolder')) {
-      return route.fulfill({ status: 200, contentType: 'application/json',
-        body: JSON.stringify({ files: driveFile ? [{ id: 'f1', name: 'greysteel-tasks-data.json' }] : [] }) });
-    }
-    if (req.method() === 'GET' && url.includes('alt=media')) {
-      return route.fulfill({ status: 200, contentType: 'application/json', body: driveFile || '{}' });
-    }
-    route.continue();
-  });
-  await page.route('https://www.googleapis.com/upload/drive/v3/files**', route => {
-    const req = route.request();
-    const body = req.postData() || '{}';
-    if (req.method() === 'POST') {
-      const m = body.match(/\{"tasks[\s\S]*\}/);
-      driveFile = m ? m[0] : '{}';
-      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: 'f1' }) });
-    }
-    driveFile = body;
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: 'f1' }) });
-  });
-  await page.route('https://www.googleapis.com/calendar/v3/calendars/primary/events**', route => {
-    const m = route.request().method();
-    if (m === 'POST') { calendarEvents++; return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: 'evt' + calendarEvents }) }); }
-    if (m === 'PATCH') return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: 'evt1' }) });
-    route.fulfill({ status: 200, body: '' });
-  });
-
   const results = [];
   const step = async (name, fn) => {
     try { await fn(); results.push('OK   ' + name); }
@@ -265,8 +194,8 @@ function assert(cond, msg) { if (!cond) throw new Error('ASSERT FAILED: ' + msg)
 
   // === 10. Dữ liệu được lưu lên Drive và đọc lại được ===
   await step('Dữ liệu goals được lưu vào Drive', async () => {
-    assert(driveFile, 'phải có file trên Drive');
-    const parsed = JSON.parse(driveFile);
+    assert(G.dataFile(), 'phải có file trên Drive');
+    const parsed = G.data();
     assert(Array.isArray(parsed.goals) && parsed.goals.length === 1, 'phải lưu 1 goal');
     assert(parsed.goals[0].phases.length === 3, 'phải lưu 3 phase');
     assert(parsed.goals[0].phases[0].logs.length === 1, 'phải lưu nhật ký');
@@ -302,7 +231,7 @@ function assert(cond, msg) { if (!cond) throw new Error('ASSERT FAILED: ' + msg)
 
 
   // Buoc 11 da dang xuat nen mock server khong con phien; bat lai de cac test sau dang nhap duoc
-  sessionCookieIssued = true;
+  st.session = true;
 
   // === 13. Tao viec tu o ngay tren Lich (truoc day bi mat trang) ===
   await step('Tạo việc bằng cách bấm vào ngày trên Lịch', async () => {
