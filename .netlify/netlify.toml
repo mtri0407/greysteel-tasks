@@ -1,0 +1,50 @@
+functionsDirectory = "C:\\Users\\Admin\\Projects\\greysteel-tasks\\netlify\\functions"
+functionsDirectoryOrigin = "config-v1"
+headersOrigin = "config"
+plugins = []
+redirects = []
+
+[build]
+publish = "C:\\Users\\Admin\\Projects\\greysteel-tasks\\public"
+publishOrigin = "config"
+functions = "C:\\Users\\Admin\\Projects\\greysteel-tasks\\netlify\\functions"
+
+[build.environment]
+
+[build.processing]
+
+[build.processing.css]
+
+[build.processing.html]
+
+[build.processing.images]
+
+[build.processing.js]
+
+[build.services]
+
+[functions]
+
+[functions."*"]
+
+[[headers]]
+for = "/*"
+
+[headers.values]
+X-Frame-Options = "DENY"
+X-Content-Type-Options = "nosniff"
+Referrer-Policy = "strict-origin-when-cross-origin"
+Permissions-Policy = "geolocation=(), microphone=(), camera=()"
+Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://lh3.googleusercontent.com https://*.googleusercontent.com; connect-src 'self' https://www.googleapis.com; form-action 'self' https://accounts.google.com; frame-ancestors 'none'; base-uri 'self'"
+
+[[headers]]
+for = "/manifest.json"
+
+[headers.values]
+Cache-Control = "public, max-age=3600"
+
+[[headers]]
+for = "/index.html"
+
+[headers.values]
+Cache-Control = "no-cache"

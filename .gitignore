@@ -1,0 +1,4 @@
+node_modules/
+.netlify/functions/
+p_*.png
+*.log

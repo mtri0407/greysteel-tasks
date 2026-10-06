@@ -1,0 +1,2051 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Greysteel Tasks 🍊</title>
+<link rel="icon" type="image/svg+xml" href="/icon.svg">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#f97a1a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Greysteel">
+<style>
+  :root{
+    --orange-50:#fff4e8; --orange-100:#ffe3c2; --orange-200:#ffc98a;
+    --orange-300:#ffab52; --orange-400:#ff8f2e; --orange-500:#f97a1a;
+    --orange-600:#e2650c; --orange-700:#b8500a; --orange-800:#8f3d08;
+    --leaf-500:#5ba05b; --leaf-600:#458a45;
+    --steel-900:#232629; --steel-800:#33383d; --steel-700:#454c52;
+    --steel-600:#5a636b; --steel-400:#8b959e; --steel-200:#dfe4e8; --steel-100:#eef1f3;
+    --bg:#fff8f0; --surface:#ffffff; --surface-2:#fff1e0;
+    --text:#2b2723; --text-soft:#6b625a; --border:#f1d9b8;
+    --danger:#e2483d; --success:#3fa66b; --radius-lg:22px; --radius-md:16px; --radius-sm:12px;
+    --shadow: 0 6px 20px rgba(224,110,20,0.10), 0 2px 6px rgba(224,110,20,0.08);
+  }
+  [data-theme="dark"]{
+    --bg:#1c1712; --surface:#2a231c; --surface-2:#332a1f;
+    --text:#f7ecdd; --text-soft:#c9b9a4; --border:#4a3c2a;
+    --shadow: 0 6px 24px rgba(0,0,0,0.35);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Segoe UI',system-ui,-apple-system,Roboto,sans-serif;background:var(--bg);color:var(--text);transition:background .25s,color .25s;}
+  a{color:inherit;}
+  button{font-family:inherit;cursor:pointer;}
+  .app{display:flex;min-height:100vh;}
+
+  /* ---------- Auth gate ---------- */
+  .auth-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 20% 20%, var(--orange-100), var(--bg) 60%);padding:20px;}
+  .auth-card{background:var(--surface);border-radius:28px;box-shadow:0 20px 60px rgba(224,110,20,.18);padding:40px 36px;max-width:420px;width:100%;text-align:center;border:1px solid var(--border);}
+  .auth-badge{width:88px;height:88px;display:block;margin:0 auto 14px;}
+  .auth-card h1{margin:6px 0 4px;font-size:22px;}
+  .auth-card p{color:var(--text-soft);font-size:13.5px;line-height:1.5;margin-bottom:22px;}
+  .gsi-btn-wrap{display:flex;justify-content:center;}
+  .google-btn{display:inline-flex;align-items:center;gap:10px;background:#fff;border:1px solid #dadce0;color:#3c4043;border-radius:999px;padding:11px 22px;font-weight:700;font-size:14px;box-shadow:0 2px 6px rgba(0,0,0,.08);}
+  .google-btn:hover{box-shadow:0 4px 12px rgba(0,0,0,.14);}
+  .google-btn svg{width:18px;height:18px;}
+  .auth-foot{margin-top:20px;font-size:11.5px;color:var(--text-soft);}
+  .auth-error{background:#fdeceb;color:var(--danger);border-radius:var(--radius-sm);padding:10px 12px;font-size:12.5px;margin-top:14px;text-align:left;}
+  .auth-scopes{margin-top:18px;text-align:left;font-size:12px;color:var(--text-soft);background:var(--surface-2);border-radius:var(--radius-sm);padding:10px 12px;}
+  .auth-scopes li{margin-bottom:4px;}
+
+  /* ---------- Sidebar ---------- */
+  .sidebar{width:230px;flex-shrink:0;background:linear-gradient(180deg,var(--orange-500),var(--orange-600));color:#fff;display:flex;flex-direction:column;padding:20px 14px;position:sticky;top:0;height:100vh;}
+  .brand{display:flex;align-items:center;gap:10px;padding:6px 8px 20px;}
+  .brand-badge{width:42px;height:42px;border-radius:12px;background:#fff;box-shadow:var(--shadow);flex-shrink:0;display:block;}
+  .brand-name{font-weight:800;font-size:17px;line-height:1.1;}
+  .brand-sub{font-size:11px;opacity:.85;letter-spacing:.5px;}
+  nav{display:flex;flex-direction:column;gap:4px;margin-top:6px;}
+  .navbtn{display:flex;align-items:center;gap:10px;padding:10px 12px;border:none;background:transparent;color:#fff;border-radius:var(--radius-sm);
+    font-size:14.5px;font-weight:600;text-align:left;opacity:.88;white-space:nowrap;
+    transition:background .2s var(--ease-soft), color .2s, opacity .2s, transform .16s var(--ease-out);-webkit-tap-highlight-color:transparent;}
+  .navbtn:hover{background:rgba(255,255,255,.16);opacity:1;transform:translateX(3px);}
+  .navbtn:active{transform:translateX(3px) scale(.98);}
+  .navbtn.active{background:#fff;color:var(--orange-600);opacity:1;transform:none;box-shadow:0 4px 14px rgba(0,0,0,.12);}
+  .navbtn .ic{transition:transform .28s var(--ease-out);}
+  .navbtn:hover .ic{transform:scale(1.18) rotate(-6deg);}
+  @media(max-width:600px){.navbtn:hover{transform:none;}}
+  .navbtn .ic{font-size:17px;width:20px;text-align:center;}
+  .sidebar-user{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.14);border-radius:var(--radius-sm);padding:8px 10px;margin-top:10px;font-size:12px;}
+  .sidebar-user img{width:28px;height:28px;border-radius:50%;}
+  .sidebar-foot{margin-top:auto;font-size:11px;opacity:.75;padding:8px;}
+  .signout-btn{background:rgba(255,255,255,.14);border:none;color:#fff;border-radius:999px;padding:6px 10px;font-size:11px;font-weight:700;margin-top:8px;width:100%;}
+  .signout-btn:hover{background:rgba(255,255,255,.25);}
+
+  /* ---------- Main ---------- */
+  .main{flex:1;padding:22px 28px 60px;max-width:1180px;}
+  .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;gap:10px;flex-wrap:wrap;}
+  .topbar h1{font-size:22px;margin:0;}
+  .topbar .sub{color:var(--text-soft);font-size:13.5px;margin-top:2px;}
+  .icon-btn{background:var(--surface);border:1px solid var(--border);border-radius:50%;width:38px;height:38px;display:flex;align-items:center;justify-content:center;font-size:17px;box-shadow:var(--shadow);}
+  .status-pill{font-size:11.5px;padding:5px 10px;border-radius:999px;font-weight:700;display:inline-flex;align-items:center;gap:5px;}
+  .status-pill.ok{background:#e4f6ea;color:var(--success);}
+  .status-pill.off{background:#fdeceb;color:var(--danger);}
+  .status-pill.busy{background:var(--orange-100);color:var(--orange-700);}
+  [data-theme="dark"] .status-pill.ok{background:#173321;}
+  [data-theme="dark"] .status-pill.off{background:#3a1c19;}
+  [data-theme="dark"] .status-pill.busy{background:#4a3520;}
+
+  /* ---------- Chuyển động & cảm giác bấm ---------- */
+  :root{ --ease-out:cubic-bezier(.22,1,.36,1); --ease-soft:cubic-bezier(.4,0,.2,1); }
+  .view{display:block;}
+  .view-enter{opacity:0;transform:translateY(10px) scale(.995);}
+  .view.active{opacity:1;transform:none;transition:opacity .32s var(--ease-out), transform .32s var(--ease-out);}
+  @keyframes fadein{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
+  @keyframes popIn{0%{opacity:0;transform:translateY(14px) scale(.96);}100%{opacity:1;transform:none;}}
+  @keyframes cardIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+  @keyframes toastIn{from{opacity:0;transform:translateY(14px) scale(.96);}to{opacity:1;transform:none;}}
+  @keyframes shimmer{0%{background-position:-320px 0;}100%{background-position:320px 0;}}
+  @keyframes pulseRing{0%{box-shadow:0 0 0 0 rgba(249,122,26,.45);}70%{box-shadow:0 0 0 10px rgba(249,122,26,0);}100%{box-shadow:0 0 0 0 rgba(249,122,26,0);}}
+
+  /* Thẻ xuất hiện lần lượt, tạo cảm giác mượt khi vào màn hình */
+  .view.active .card, .view.active .taskcard, .view.active .note, .view.active .phase-card{
+    animation:cardIn .34s var(--ease-out) both;
+  }
+  .view.active .card:nth-child(1){animation-delay:.02s;}
+  .view.active .card:nth-child(2){animation-delay:.06s;}
+  .view.active .card:nth-child(3){animation-delay:.10s;}
+  .view.active .card:nth-child(4){animation-delay:.14s;}
+  .view.active .grid > *:nth-child(1){animation-delay:.02s;}
+  .view.active .grid > *:nth-child(2){animation-delay:.06s;}
+  .view.active .grid > *:nth-child(3){animation-delay:.10s;}
+  .view.active .grid > *:nth-child(4){animation-delay:.14s;}
+  .view.active .grid > *:nth-child(5){animation-delay:.18s;}
+  .view.active .grid > *:nth-child(6){animation-delay:.22s;}
+
+  @media (prefers-reduced-motion: reduce){
+    *,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important;}
+  }
+
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;box-shadow:var(--shadow);
+    transition:box-shadow .28s var(--ease-out), transform .28s var(--ease-out), border-color .2s;}
+  .goal-card:hover, .phase-card:hover{transform:translateY(-3px);box-shadow:0 14px 34px rgba(224,110,20,.16);border-color:var(--orange-200);}
+  [data-theme="dark"] .goal-card:hover, [data-theme="dark"] .phase-card:hover{box-shadow:0 14px 34px rgba(0,0,0,.42);}
+  .grid{display:grid;gap:16px;}
+  .grid-2{grid-template-columns:1fr 1fr;}
+  .grid-3{grid-template-columns:repeat(3,1fr);}
+  .grid-4{grid-template-columns:repeat(4,1fr);}
+  @media(max-width:900px){.grid-2,.grid-3,.grid-4{grid-template-columns:1fr 1fr;}}
+  @media(max-width:600px){.app{flex-direction:column;} .sidebar{width:100%;height:auto;position:relative;flex-direction:row;flex-wrap:wrap;overflow-x:auto;} nav{flex-direction:row;} .brand{padding:6px;} .grid-2,.grid-3,.grid-4{grid-template-columns:1fr;}}
+
+  .stat-card{padding:16px;border-radius:var(--radius-md);background:var(--surface-2);}
+  .stat-num{font-size:26px;font-weight:800;color:var(--orange-600);}
+  .stat-label{font-size:12.5px;color:var(--text-soft);margin-top:2px;}
+
+  .btn{border:none;border-radius:999px;padding:9px 16px;font-weight:700;font-size:13.5px;display:inline-flex;align-items:center;gap:6px;
+    position:relative;overflow:hidden;transition:transform .16s var(--ease-out), box-shadow .22s var(--ease-out), background .18s var(--ease-soft), filter .18s;
+    -webkit-tap-highlight-color:transparent;}
+  .btn:hover{transform:translateY(-1.5px);}
+  .btn:active{transform:translateY(0) scale(.97);transition-duration:.06s;}
+  .btn:focus-visible{outline:none;box-shadow:0 0 0 3px var(--orange-200);}
+  /* Gợn sóng khi bấm, tạo cảm giác phản hồi tức thì */
+  .btn::after{content:'';position:absolute;left:var(--rx,50%);top:var(--ry,50%);width:0;height:0;border-radius:50%;
+    background:rgba(255,255,255,.55);transform:translate(-50%,-50%);opacity:0;pointer-events:none;}
+  .btn.rippling::after{animation:ripple .55s var(--ease-out);}
+  @keyframes ripple{0%{width:0;height:0;opacity:.5;}100%{width:260px;height:260px;opacity:0;}}
+  .btn-primary{background:var(--orange-500);color:#fff;box-shadow:0 4px 12px rgba(249,122,26,.35);}
+  .btn-primary:hover{background:var(--orange-600);box-shadow:0 8px 20px rgba(249,122,26,.42);}
+  .btn-ghost{background:var(--surface-2);color:var(--text);}
+  .btn-ghost:hover{background:var(--orange-100);}
+  .btn-danger{background:#fdeceb;color:var(--danger);}
+  .btn-danger:hover{background:#fbdcd9;}
+  [data-theme="dark"] .btn-danger{background:#3a1c19;}
+  .btn-danger-solid{background:var(--danger);color:#fff;box-shadow:0 4px 12px rgba(226,72,61,.32);}
+  .btn-danger-solid:hover{background:#c93c32;}
+  .btn-sm{padding:6px 12px;font-size:12px;}
+  .btn::after{will-change:width,height,opacity;}
+
+  .taskcard{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:12px 14px;margin-bottom:10px;cursor:grab;
+    box-shadow:0 2px 6px rgba(0,0,0,0.04);transition:transform .2s var(--ease-out), box-shadow .24s var(--ease-out), border-color .2s, opacity .3s;}
+  .taskcard:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(224,110,20,.14);}
+  .taskcard:active{cursor:grabbing;transform:scale(.995);}
+  .taskcard[draggable="true"]:active{opacity:.7;}
+  .taskcard.done{opacity:.55;}
+  .taskcard.done .t-title{text-decoration:line-through;}
+  .taskcard.doing{border-left:4px solid var(--orange-500);background:linear-gradient(90deg,var(--orange-50),var(--surface) 22%);}
+  [data-theme="dark"] .taskcard.doing{background:linear-gradient(90deg,#3a2c18,var(--surface) 22%);}
+  .tag-doing{background:var(--orange-500);color:#fff;}
+  [data-theme="dark"] .tag-doing{background:var(--orange-600);color:#fff;}
+  .taskcard:hover{border-color:var(--orange-300);}
+  .t-title{font-weight:700;font-size:14px;}
+  .t-meta{display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;align-items:center;}
+  .tag{font-size:11px;background:var(--orange-100);color:var(--orange-700);padding:2px 8px;border-radius:999px;font-weight:700;}
+  [data-theme="dark"] .tag{background:#4a3520;color:var(--orange-200);}
+  .due{font-size:11.5px;color:var(--text-soft);}
+  .due.overdue{color:var(--danger);font-weight:700;}
+  .t-actions{display:flex;gap:6px;margin-top:8px;}
+  .t-actions button{background:none;border:none;font-size:14px;padding:2px 4px;border-radius:6px;color:var(--text-soft);}
+  .t-actions button:hover{background:var(--surface-2);}
+
+  .quadrant{border-radius:var(--radius-lg);padding:14px;min-height:220px;background:var(--surface-2);border:2px dashed var(--border);}
+  .quadrant.dragover{border-color:var(--orange-400);background:var(--orange-50);}
+  .quadrant h3{margin:0 0 4px;font-size:14px;display:flex;align-items:center;gap:6px;}
+  .quadrant .desc{font-size:11.5px;color:var(--text-soft);margin-bottom:10px;}
+  .q1{border-color:#f0958a;} .q2{border-color:var(--orange-300);} .q3{border-color:#f2c98a;} .q4{border-color:var(--steel-200);}
+
+  input,textarea,select{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:13.5px;}
+  label{font-size:12.5px;font-weight:700;color:var(--text-soft);display:block;margin:10px 0 4px;}
+  .field-row{display:flex;gap:10px;}
+  .field-row > div{flex:1;}
+
+  .modal-bg{position:fixed;inset:0;background:rgba(30,20,10,.45);display:none;align-items:center;justify-content:center;z-index:50;padding:16px;
+    backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);opacity:0;transition:opacity .2s var(--ease-soft);}
+  .modal-bg.show{display:flex;opacity:1;}
+  .modal-bg.closing{opacity:0;}
+  .modal{background:var(--surface);border-radius:var(--radius-lg);padding:22px;max-width:440px;width:100%;max-height:88vh;overflow:auto;
+    box-shadow:0 24px 60px rgba(0,0,0,.28);animation:popIn .28s var(--ease-out);}
+  .modal-bg.closing .modal{animation:popOut .18s var(--ease-soft) forwards;}
+  @keyframes popOut{to{opacity:0;transform:translateY(8px) scale(.97);}}
+  .modal h2{margin:0 0 6px;font-size:17px;}
+  .modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px;}
+
+  table{width:100%;border-collapse:collapse;font-size:13.5px;}
+  th{text-align:left;font-size:11.5px;color:var(--text-soft);padding:8px 10px;border-bottom:1px solid var(--border);}
+  td{padding:9px 10px;border-bottom:1px solid var(--border);}
+  tr:hover td{background:var(--surface-2);}
+
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;}
+  .cal-day{min-height:76px;border-radius:var(--radius-sm);padding:6px;background:var(--surface-2);font-size:11px;border:1px solid transparent;}
+  .cal-day.today{border-color:var(--orange-400);background:var(--orange-50);}
+  .cal-day .dnum{font-weight:800;font-size:12px;}
+  .cal-day .evt{background:var(--orange-500);color:#fff;border-radius:6px;padding:1px 5px;margin-top:3px;font-size:10px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .cal-day .evt.bday{background:#e85d75;}
+  .cal-dow{font-size:11px;font-weight:800;color:var(--text-soft);text-align:center;padding-bottom:4px;}
+
+  .note{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:14px;min-height:100px;box-shadow:0 2px 6px rgba(0,0,0,.04);position:relative;}
+  .note.pinned{border-color:var(--orange-400);}
+  .note-cat{font-size:10.5px;color:var(--orange-600);font-weight:800;text-transform:uppercase;letter-spacing:.4px;}
+
+  .bar-row{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+  .bar-label{width:52px;font-size:12px;color:var(--text-soft);}
+  .bar-track{flex:1;background:var(--surface-2);border-radius:999px;height:14px;overflow:hidden;}
+  .bar-fill{height:100%;background:linear-gradient(90deg,var(--orange-400),var(--orange-600));border-radius:999px;
+    transition:width .7s var(--ease-out);animation:barGrow .8s var(--ease-out);position:relative;}
+  @keyframes barGrow{from{transform:scaleX(0);transform-origin:left;}to{transform:scaleX(1);transform-origin:left;}}
+  .stat-card{transition:transform .24s var(--ease-out), background .24s;}
+  .stat-card:hover{transform:translateY(-2px);background:var(--orange-100);}
+  [data-theme="dark"] .stat-card:hover{background:#3d2f1c;}
+  .stat-num{transition:color .2s;}
+  .bar-val{width:26px;font-size:12px;font-weight:700;text-align:right;}
+
+  .empty{color:var(--text-soft);font-size:13px;text-align:center;padding:26px 10px;}
+  .banner{background:var(--orange-50);border:1px solid var(--orange-200);border-radius:var(--radius-md);padding:14px 16px;margin-bottom:16px;font-size:13.5px;}
+  [data-theme="dark"] .banner{background:#332616;border-color:#5a3f1c;}
+  .toast-wrap{position:fixed;bottom:18px;right:18px;display:flex;flex-direction:column;gap:8px;z-index:100;pointer-events:none;}
+  @media(max-width:600px){.toast-wrap{left:14px;right:14px;bottom:14px;align-items:stretch;}}
+  .toast{background:var(--steel-900);color:#fff;padding:11px 17px;border-radius:var(--radius-sm);font-size:13px;
+    box-shadow:0 10px 26px rgba(0,0,0,.28);animation:toastIn .3s var(--ease-out);border-left:3px solid var(--orange-400);}
+  .toast.hiding{animation:toastOut .28s var(--ease-soft) forwards;}
+  @keyframes toastOut{to{opacity:0;transform:translateY(8px) scale(.97);}}
+  .avatar-pick{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;}
+  .avatar-pick button{width:38px;height:38px;border-radius:50%;border:2px solid transparent;background:var(--surface-2);font-size:18px;}
+  .avatar-pick button.sel{border-color:var(--orange-500);}
+  .switch{display:flex;align-items:center;gap:8px;}
+  .switch input{width:auto;}
+  h2.section{font-size:16px;margin:22px 0 10px;}
+
+  /* ---- Lộ trình mục tiêu ---- */
+  .goal-card{display:flex;flex-direction:column;}
+  .goal-area{font-size:11.5px;font-weight:800;color:var(--orange-600);text-transform:uppercase;letter-spacing:.4px;}
+  .goal-title{font-size:17px;font-weight:800;margin:2px 0;}
+  .dual-bar{margin-top:10px;}
+  .dual-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+  .dual-label{width:62px;font-size:11.5px;color:var(--text-soft);}
+  .bar-time{background:linear-gradient(90deg,var(--steel-400),var(--steel-600));}
+  .pace-ok{color:var(--success);font-weight:700;}
+  .pace-slow{color:#d98324;font-weight:700;}
+  .phase-chip{margin-top:8px;font-size:12.5px;background:var(--surface-2);border-radius:var(--radius-sm);padding:8px 10px;}
+  .phase-card{margin-bottom:12px;}
+  .phase-active{border-color:var(--orange-400);box-shadow:0 0 0 3px var(--orange-100);}
+  [data-theme="dark"] .phase-active{box-shadow:0 0 0 3px #4a3520;}
+  .phase-done{opacity:.9;}
+  .phase-name{font-weight:800;font-size:15px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .tri-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px;}
+  @media(max-width:600px){.tri-grid{grid-template-columns:1fr;}}
+  .tri-cell{background:var(--surface-2);border-radius:var(--radius-md);padding:10px 12px;}
+  .tri-label{font-size:11px;color:var(--text-soft);font-weight:700;text-transform:uppercase;letter-spacing:.3px;}
+  .tri-val{font-size:18px;font-weight:800;margin-top:2px;}
+  .tri-val.est{color:var(--orange-600);}
+  .tri-val.actual{color:var(--success);}
+  .tri-sub{font-size:11px;color:var(--text-soft);margin-top:2px;}
+  .wk-badge{font-size:10.5px;font-weight:800;padding:2px 7px;border-radius:999px;white-space:nowrap;}
+  .wk-badge.ok{background:#e4f6ea;color:var(--success);}
+  .wk-badge.miss{background:#fdeceb;color:var(--danger);}
+  .wk-badge.pending{background:var(--orange-100);color:var(--orange-700);}
+  [data-theme="dark"] .wk-badge.ok{background:#173321;}
+  [data-theme="dark"] .wk-badge.miss{background:#3a1c19;}
+  [data-theme="dark"] .wk-badge.pending{background:#4a3520;}
+  .log-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:8px;background:var(--surface-2);}
+  .retro-note{margin-top:10px;font-size:12.5px;background:var(--surface-2);border-left:3px solid var(--orange-400);padding:8px 10px;border-radius:8px;}
+  .retro-verdict{margin-top:12px;font-weight:800;font-size:15px;padding:10px 12px;border-radius:var(--radius-sm);}
+  .retro-verdict.ok{background:#e4f6ea;color:var(--success);}
+  .retro-verdict.warn{background:#fff3e0;color:#b8500a;}
+  [data-theme="dark"] .retro-verdict.ok{background:#173321;}
+  [data-theme="dark"] .retro-verdict.warn{background:#3d2c15;color:var(--orange-200);}
+  .sug-box{margin-top:10px;padding:10px 12px;border-radius:var(--radius-sm);font-size:12.5px;}
+  .sug-box.ok{background:#e4f6ea;}
+  .sug-box.warn{background:var(--orange-50);border:1px solid var(--orange-200);}
+  [data-theme="dark"] .sug-box.ok{background:#173321;}
+  [data-theme="dark"] .sug-box.warn{background:#332616;border-color:#5a3f1c;}
+  .subtle{color:var(--text-soft);font-size:12.5px;}
+  code.pathy{background:var(--surface-2);padding:1px 6px;border-radius:6px;}
+  .profile-chip{display:flex;align-items:center;gap:10px;}
+  .profile-chip img{width:46px;height:46px;border-radius:50%;}
+</style>
+</head>
+<body data-theme="light">
+
+<div id="authScreen" class="auth-screen">
+  <div class="auth-card">
+    <img class="auth-badge" src="/icon.svg" alt="Greysteel Tasks">
+    <h1>Greysteel Tasks</h1>
+    <p>Đăng nhập bằng tài khoản Google để bắt đầu. Dữ liệu của bạn (việc cần làm, ngày đặc biệt,
+      ghi chú) được lưu ngay trong Google Drive của chính bạn, không qua máy chủ nào khác.</p>
+    <div class="gsi-btn-wrap">
+      <button class="google-btn" id="googleSignInBtn">
+        <svg viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.9 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 8 3l6-6C34.6 5.5 29.6 3.5 24 3.5 12.7 3.5 3.5 12.7 3.5 24S12.7 44.5 24 44.5 44.5 35.3 44.5 24c0-1.2-.1-2.4-.3-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.9 19 13 24 13c3.1 0 5.8 1.1 8 3l6-6C34.6 5.5 29.6 3.5 24 3.5c-7.4 0-13.7 4.2-16.9 10.3z"/><path fill="#4CAF50" d="M24 44.5c5.5 0 10.4-1.9 14.2-5.1l-6.6-5.4C29.6 35.6 26.9 36.5 24 36.5c-5.3 0-9.7-3.4-11.3-8.1l-6.6 5.1C9.3 40.3 16.1 44.5 24 44.5z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.3 4.3-4.3 5.7l6.6 5.4C41.5 36 44.5 30.5 44.5 24c0-1.2-.1-2.4-.3-3.5z"/></svg>
+        Đăng nhập với Google
+      </button>
+    </div>
+    <div id="authError"></div>
+    <ul class="auth-scopes">
+      <li>🍊 Lưu &amp; đọc dữ liệu trong 1 file ẩn riêng của app (Drive appData)</li>
+      <li>📅 Tạo/sửa nhắc hẹn trên Google Calendar của bạn</li>
+      <li>👤 Lấy tên &amp; ảnh đại diện để hiển thị hồ sơ</li>
+    </ul>
+    <div class="auth-foot">Greysteel Tasks không lưu dữ liệu trên máy chủ riêng. Mọi thứ nằm trong tài khoản Google của bạn.</div>
+  </div>
+</div>
+
+<div class="app" id="appRoot" style="display:none;">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <img class="brand-badge" src="/icon.svg" alt="">
+      <div>
+        <div class="brand-name">Greysteel</div>
+        <div class="brand-sub">TASKS</div>
+      </div>
+    </div>
+    <nav id="nav"></nav>
+    <div id="sidebarUser" class="sidebar-user"></div>
+    <button class="signout-btn" id="signOutBtn">Đăng xuất</button>
+    <div class="sidebar-foot">Greysteel Tasks · quản lý việc lặt vặt<br>đến khẩn cấp, tất cả trong 1 nơi 🍊</div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div>
+        <h1 id="pageTitle">Trang chủ</h1>
+        <div class="sub" id="pageSub"></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span id="connStatus" class="status-pill ok">● đã đồng bộ</span>
+        <button class="icon-btn" id="themeToggle" title="Đổi giao diện sáng/tối">🌙</button>
+      </div>
+    </div>
+
+    <div id="views"></div>
+  </main>
+</div>
+
+<div class="modal-bg" id="modalBg"><div class="modal" id="modalBody"></div></div>
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script>
+/* ======================= CONFIG ======================= */
+/* 1) Tạo OAuth Client ID trên Google Cloud Console (xem HUONG_DAN.md) và dán vào đây.
+      Đây là Client ID công khai (không phải bí mật) nên để thẳng trong file là an toàn.
+   2) Client Secret KHÔNG được đặt ở đây — nó chỉ sống trong biến môi trường của Netlify
+      Functions (xem netlify/functions/_lib.js + HUONG_DAN.md), không bao giờ gửi ra trình duyệt.
+   3) Trong Google Cloud Console, thêm chính xác domain Netlify của bạn vào cả
+      "Authorized JavaScript origins" lẫn "Authorized redirect URIs" (dạng
+      https://ten-app.netlify.app/.netlify/functions/auth-callback). */
+const CONFIG = {
+  GOOGLE_CLIENT_ID: "811335256735-2vl17g5aa0tc8ht5hicatkio93ecajcp.apps.googleusercontent.com",
+};
+const SCOPES = [
+  'https://www.googleapis.com/auth/drive.appdata',
+  'https://www.googleapis.com/auth/calendar.events',
+  'https://www.googleapis.com/auth/userinfo.profile',
+  'https://www.googleapis.com/auth/userinfo.email',
+].join(' ');
+const DATA_FILE_NAME = 'greysteel-tasks-data.json';
+const DRIVE_FILES = 'https://www.googleapis.com/drive/v3/files';
+const DRIVE_UPLOAD = 'https://www.googleapis.com/upload/drive/v3/files';
+const CAL_EVENTS = 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
+const USERINFO = 'https://www.googleapis.com/oauth2/v3/userinfo';
+
+const AVATARS = ['🍊','🧡','🍑','🥭','🌻','😊','🐯','🦁','🐨','🐼','🌟','🔥'];
+const STATUS_META = {
+  todo:  {label:'Chưa làm',    dot:'⚪', short:'Chưa làm'},
+  doing: {label:'Đang làm',    dot:'🟡', short:'Đang làm'},
+  done:  {label:'Hoàn thành',  dot:'✅', short:'Hoàn thành'},
+};
+const QUADRANTS = {
+  1:{label:'Khẩn cấp + Quan trọng', desc:'Làm ngay', cls:'q1', icon:'🔥'},
+  2:{label:'Quan trọng, không khẩn', desc:'Lên kế hoạch', cls:'q2', icon:'🍊'},
+  3:{label:'Khẩn cấp, không quan trọng', desc:'Ủy quyền / làm nhanh', cls:'q3', icon:'⚡'},
+  4:{label:'Không khẩn, không quan trọng', desc:'Việc lặt vặt', cls:'q4', icon:'🍃'},
+};
+const VIEWS = [
+  {id:'home', label:'Trang chủ', icon:'🏠'},
+  {id:'planner', label:'Lộ trình mục tiêu', icon:'🎯'},
+  {id:'matrix', label:'Ma trận ưu tiên', icon:'🍊'},
+  {id:'calendar', label:'Lịch', icon:'📅'},
+  {id:'list', label:'Danh sách việc', icon:'📋'},
+  {id:'people', label:'Ngày đặc biệt', icon:'🎂'},
+  {id:'notes', label:'Ghi chú vặt', icon:'📝'},
+  {id:'stats', label:'Thống kê', icon:'📊'},
+  {id:'settings', label:'Cài đặt', icon:'⚙️'},
+];
+
+/* Mẫu đơn vị đo cho mục tiêu. Người dùng chọn nhanh hoặc tự gõ đơn vị riêng. */
+const UNIT_PRESETS = [
+  {id:'band',   label:'Band điểm (IELTS...)', unit:'band',    step:0.5},
+  {id:'score',  label:'Điểm số / GPA',        unit:'điểm',    step:0.1},
+  {id:'money',  label:'Tiền (triệu VNĐ)',     unit:'triệu',   step:1},
+  {id:'weight', label:'Cân nặng (kg)',        unit:'kg',      step:0.5},
+  {id:'percent',label:'Phần trăm (%)',        unit:'%',       step:1},
+  {id:'count',  label:'Số lượng (bài, buổi)', unit:'bài',     step:1},
+  {id:'hours',  label:'Số giờ',               unit:'giờ',     step:1},
+];
+const GOAL_AREAS = [
+  {id:'study',  label:'Học tập',    icon:'📚'},
+  {id:'health', label:'Sức khoẻ',   icon:'💪'},
+  {id:'career', label:'Sự nghiệp',  icon:'💼'},
+  {id:'money',  label:'Tài chính',  icon:'💰'},
+  {id:'skill',  label:'Kỹ năng',    icon:'🎨'},
+  {id:'other',  label:'Khác',       icon:'🎯'},
+];
+/* Sườn gợi ý: app đề xuất khung phase, người dùng tự sửa/bổ sung/sáng tạo thêm. */
+const PHASE_BLUEPRINTS = {
+  study:  ['Xây nền tảng', 'Nâng cao & luyện đề', 'Tăng tốc về đích'],
+  health: ['Làm quen & tạo thói quen', 'Tăng cường độ', 'Hoàn thiện & duy trì'],
+  career: ['Chuẩn bị & học hỏi', 'Triển khai thực tế', 'Mở rộng & tối ưu'],
+  money:  ['Thiết lập nền móng', 'Tăng trưởng', 'Bứt tốc'],
+  skill:  ['Cơ bản', 'Thực hành có hướng dẫn', 'Tự chủ & nâng cao'],
+  other:  ['Giai đoạn 1', 'Giai đoạn 2', 'Giai đoạn 3'],
+};
+
+let state = {
+  view: 'home',
+  theme: 'light',
+  saving:false, saveError:false, dataLoaded:false, loadError:false,
+  google:{ signedIn:false, accessToken:null, tokenExpiry:0, email:'', name:'', picture:'' },
+  driveFileId: null,
+  tasks: [], people: [], notes: [], goals: [], profile: {name:'', avatarEmoji:'🍊', theme:'light', notificationsEnabled:true},
+  calMonth: new Date().getMonth(), calYear: new Date().getFullYear(),
+  notified: new Set(),
+  planner: {level:'list', goalId:null, phaseId:null},
+  listFilter: {q:'', status:'', quadrant:''},
+};
+
+/* ======================= UTIL ======================= */
+function $(sel, root){return (root||document).querySelector(sel);}
+function $$(sel,root){ return Array.from((root||document).querySelectorAll(sel)); }
+/* $m: chỉ tìm bên trong hộp thoại đang mở. Bắt buộc dùng cho mọi ô nhập trong modal,
+   vì màn hình nền có thể có ô trùng id (vd bộ lọc trạng thái ở Danh sách việc trùng
+   với ô trạng thái trong hộp thoại sửa việc, khiến lưu nhầm giá trị của bộ lọc). */
+function $m(sel){ const box=document.getElementById('modalBody'); return box? box.querySelector(sel) : null; }
+function el(tag, cls, html){const e=document.createElement(tag); if(cls) e.className=cls; if(html!==undefined) e.innerHTML=html; return e;}
+function uid(){return 'id-'+Math.random().toString(36).slice(2,10)+Date.now().toString(36);}
+/* QUAN TRỌNG: luôn dùng ngày theo GIỜ ĐỊA PHƯƠNG, không dùng toISOString() vì hàm đó
+   đổi sang UTC. Ở Việt Nam (UTC+7), toISOString() sẽ trả về ngày hôm qua trong khoảng
+   00:00 đến 07:00 sáng, làm lệch toàn bộ hạn công việc, lịch và tính tuần của lộ trình. */
+function ymd(d){
+  const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+function todayStr(){ return ymd(new Date()); }
+function fmtDate(s){ if(!s) return ''; const d=new Date(s+'T00:00:00'); return d.toLocaleDateString('vi-VN',{day:'2-digit',month:'2-digit',year:'numeric'}); }
+/* Escape để chống XSS và tránh vỡ thuộc tính HTML khi tên việc có dấu nháy kép.
+   esc() dùng cho nội dung text, escAttr() dùng khi nhét vào value="..." */
+function esc(s){
+  if(s===null||s===undefined) return '';
+  return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+const escAttr = esc;
+function toast(msg){
+  const t=el('div','toast'); t.textContent=msg;
+  $('#toastWrap').appendChild(t);
+  setTimeout(()=>{ t.classList.add('hiding'); setTimeout(()=>t.remove(), 300); }, 3000);
+}
+function daysBetween(a,b){ return Math.round((b-a)/86400000); }
+
+/* ======================= GOOGLE AUTH (Authorization Code flow + Netlify Functions) =======================
+   Vì sao không dùng Google Identity Services "Token model" nữa: theo tài liệu chính thức của
+   Google, token model KHÔNG hỗ trợ duy trì đăng nhập nếu không có backend — access token hết
+   hạn là phải bấm đăng nhập lại (https://developers.google.com/identity/oauth2/web/guides/use-token-model).
+   Ở đây ta chuyển hướng người dùng sang Google, đổi mã lấy refresh_token tại 1 Netlify Function
+   (auth-callback), cất refresh_token trong cookie httpOnly, rồi mỗi lần mở app chỉ cần gọi
+   /refresh-token để âm thầm lấy access_token mới — không phải đăng nhập lại mỗi lần vào web. */
+const AUTH_URL_BASE = 'https://accounts.google.com/o/oauth2/v2/auth';
+function redirectUri(){ return location.origin + '/.netlify/functions/auth-callback'; }
+function randomStateStr(){
+  const arr = new Uint8Array(24); crypto.getRandomValues(arr);
+  return Array.from(arr, b => b.toString(16).padStart(2,'0')).join('');
+}
+function setCookie(name, value, maxAgeSec){
+  const secure = location.protocol==='https:' ? '; Secure' : '';
+  document.cookie = `${name}=${encodeURIComponent(value)}; Path=/; Max-Age=${maxAgeSec}; SameSite=Lax${secure}`;
+}
+function beginSignIn(){
+  if(!CONFIG.GOOGLE_CLIENT_ID){ showAuthError('Chưa cấu hình GOOGLE_CLIENT_ID trong file. Xem HUONG_DAN.md để tạo OAuth Client ID.'); return; }
+  const st = randomStateStr();
+  setCookie('gt_oauth_state', st, 600);
+  const params = new URLSearchParams({
+    client_id: CONFIG.GOOGLE_CLIENT_ID, redirect_uri: redirectUri(), response_type:'code',
+    scope: SCOPES, access_type:'offline', prompt:'consent', include_granted_scopes:'true', state: st,
+  });
+  location.href = `${AUTH_URL_BASE}?${params.toString()}`;
+}
+function showAuthError(msg){
+  $('#authError').innerHTML = `<div class="auth-error">⚠️ ${msg}</div>`;
+}
+/* Lấy access_token mới thông qua refresh_token đang cất ở cookie httpOnly phía server.
+   Trả về null nếu chưa từng đăng nhập / phiên đã hết hạn (Google thu hồi, đổi mật khẩu...). */
+/* Trả về {token} nếu lấy được, {expired:true} nếu phiên thật sự hết hạn (401),
+   hoặc {transient:true} nếu chỉ là lỗi tạm thời (mất mạng, Google 5xx).
+   Phân biệt 2 trường hợp này rất quan trọng: một lần mất sóng wifi KHÔNG được phép
+   thu hồi phiên đăng nhập 180 ngày của người dùng. */
+async function silentRefresh(){
+  let lastTransient=false;
+  for(let attempt=0; attempt<3; attempt++){
+    try{
+      const res = await fetch('/.netlify/functions/refresh-token', {method:'GET', credentials:'same-origin'});
+      if(res.status===401){
+        const j=await res.json().catch(()=>({}));
+        if(j.error==='no_session'||j.error==='bad_session') return {expired:true};
+        lastTransient=true; // refresh_failed: có thể do Google lỗi tạm thời
+      } else if(res.ok){
+        const json = await res.json();
+        if(json.ok && json.access_token){
+          state.google.accessToken = json.access_token;
+          state.google.tokenExpiry = Date.now() + (Number(json.expires_in||3600)*1000);
+          return {token: state.google.accessToken};
+        }
+        lastTransient=true;
+      } else { lastTransient=true; }
+    }catch(e){ lastTransient=true; }
+    if(attempt<2) await new Promise(r=>setTimeout(r, 600*(attempt+1))); // thử lại có giãn cách
+  }
+  return lastTransient ? {transient:true} : {expired:true};
+}
+async function ensureToken(){
+  if(state.google.accessToken && Date.now() < state.google.tokenExpiry - 60000) return state.google.accessToken;
+  const r = await silentRefresh();
+  if(r.token) return r.token;
+  if(r.expired){
+    toast('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.');
+    signOut();
+    throw new Error('session_expired');
+  }
+  // Lỗi tạm thời: giữ nguyên phiên, dữ liệu trong máy vẫn còn, chỉ báo cho người dùng biết
+  toast('Mạng đang chập chờn, chưa đồng bộ được. Dữ liệu của bạn vẫn an toàn, sẽ thử lại sau.');
+  throw new Error('temporary_network_error');
+}
+async function onSignedIn(){
+  state.google.signedIn = true;
+  try{
+    const token = await ensureToken();
+    const res = await fetch(USERINFO, {headers:{Authorization:'Bearer '+token}});
+    const info = await res.json();
+    state.google.email = info.email||''; state.google.name = info.name||''; state.google.picture = info.picture||'';
+  }catch(e){ /* not fatal */ }
+  $('#authScreen').style.display='none';
+  $('#appRoot').style.display='flex';
+  await loadFromDrive();
+  if(!state.profile.name) state.profile.name = state.google.name || 'Bạn';
+  renderAll();
+  setInterval(checkReminders, 5*60*1000);
+  checkReminders();
+}
+async function signOut(){
+  try{ await fetch('/.netlify/functions/logout', {method:'POST', credentials:'same-origin'}); }catch(e){}
+  state.google = {signedIn:false, accessToken:null, tokenExpiry:0, email:'', name:'', picture:''};
+  $('#appRoot').style.display='none';
+  $('#authScreen').style.display='flex';
+}
+/* Chạy khi tải trang: nếu vừa quay lại từ Google (có #at=...&exp=... trên URL) thì dùng luôn;
+   nếu không, thử âm thầm làm mới phiên bằng cookie; nếu cả 2 đều không có thì hiện màn hình đăng nhập. */
+async function initAuth(){
+  $('#googleSignInBtn').onclick = beginSignIn;
+  const hash = new URLSearchParams(location.hash.replace(/^#/,''));
+  if(hash.get('at')){
+    state.google.accessToken = hash.get('at');
+    state.google.tokenExpiry = Date.now() + (Number(hash.get('exp')||3600)*1000);
+    history.replaceState(null, '', location.pathname + location.search);
+    await onSignedIn();
+    return;
+  }
+  const r = await silentRefresh();
+  if(r.token){ await onSignedIn(); return; }
+  if(r.transient) showAuthError('Không kết nối được máy chủ lúc này. Kiểm tra mạng rồi tải lại trang, phiên đăng nhập của bạn vẫn còn.');
+  // chưa đăng nhập lần nào / phiên đã hết hạn: ở lại màn hình đăng nhập, không báo lỗi
+}
+
+/* ======================= DRIVE STORAGE (appDataFolder) ======================= */
+async function driveFindFile(){
+  const token = await ensureToken();
+  const url = `${DRIVE_FILES}?spaces=appDataFolder&q=${encodeURIComponent("name='"+DATA_FILE_NAME+"'")}&fields=files(id,name)`;
+  const res = await fetch(url, {headers:{Authorization:'Bearer '+token}});
+  if(!res.ok) throw new Error('drive_list_failed_'+res.status);
+  const j = await res.json();
+  return (j.files && j.files[0]) || null;
+}
+/* An toàn dữ liệu: chỉ cho phép GHI khi đã ĐỌC thành công. Nếu Drive lỗi tạm thời
+   (mạng chập chờn, 401/429/500), app tuyệt đối không được coi như "chưa có dữ liệu"
+   rồi ghi đè file thật bằng dữ liệu rỗng. */
+async function loadFromDrive(){
+  try{
+    const file = await driveFindFile();
+    if(!file){ state.driveFileId=null; state.dataLoaded=true; return; }
+    const token = await ensureToken();
+    const res = await fetch(`${DRIVE_FILES}/${file.id}?alt=media`, {headers:{Authorization:'Bearer '+token}});
+    if(!res.ok) throw new Error('drive_read_failed_'+res.status);
+    const data = await res.json();
+    state.tasks = (data.tasks||[]).map(normTask);
+    state.people = data.people||[];
+    state.notes = data.notes||[];
+    state.goals = (data.goals||[]).map(normGoal);
+    state.profile = Object.assign({avatarEmoji:'🍊', notificationsEnabled:true}, data.profile||{});
+    if(state.profile.theme==='dark'||state.profile.theme==='light') state.theme=state.profile.theme;
+    state.driveFileId = file.id;
+    state.dataLoaded = true;
+  }catch(e){
+    state.dataLoaded = false;   // khoá ghi để không phá dữ liệu cũ
+    state.driveFileId = null;
+    state.loadError = true;
+    toast('Không đọc được dữ liệu từ Drive. Đã tạm khoá lưu để bảo vệ dữ liệu cũ, hãy tải lại trang.');
+  }
+}
+let saveTimer=null, saveInFlight=false, savePendingAgain=false;
+function scheduleSave(){
+  if(!state.dataLoaded) return; // chưa đọc được dữ liệu thì không ghi đè
+  state.saving=true; renderTopbar();
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(saveToDrive, 500);
+}
+async function saveToDrive(){
+  if(!state.dataLoaded) return;
+  if(saveInFlight){ savePendingAgain=true; return; } // tránh 2 lần ghi chồng nhau
+  saveInFlight=true;
+  try{
+    const token = await ensureToken();
+    const payload = JSON.stringify({tasks:state.tasks, people:state.people, notes:state.notes, goals:state.goals, profile:state.profile});
+    if(state.driveFileId){
+      const res = await fetch(`${DRIVE_UPLOAD}/${state.driveFileId}?uploadType=media`, {
+        method:'PATCH', headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'}, body: payload,
+      });
+      if(!res.ok) throw new Error('drive_save_failed_'+res.status);
+    } else {
+      const boundary='greysteel_bnd_'+Date.now();
+      const metadata = {name:DATA_FILE_NAME, parents:['appDataFolder']};
+      const body =
+        `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n`+
+        `--${boundary}\r\nContent-Type: application/json\r\n\r\n${payload}\r\n--${boundary}--`;
+      const res = await fetch(`${DRIVE_UPLOAD}?uploadType=multipart&fields=id`, {
+        method:'POST', headers:{Authorization:'Bearer '+token,'Content-Type':`multipart/related; boundary=${boundary}`}, body,
+      });
+      if(!res.ok) throw new Error('drive_create_failed_'+res.status);
+      const j = await res.json();
+      if(!j.id) throw new Error('drive_create_no_id');
+      state.driveFileId = j.id;
+    }
+    state.saving=false; state.saveError=false;
+  }catch(e){
+    state.saving=false; state.saveError=true;
+    if(String(e.message)!=='session_expired') toast('Lỗi lưu dữ liệu lên Drive, sẽ thử lại khi bạn thao tác tiếp.');
+  }
+  saveInFlight=false;
+  if(savePendingAgain){ savePendingAgain=false; saveToDrive(); return; }
+  renderTopbar();
+}
+function normTask(t){
+  let subtasks=t.subtasks;
+  if(typeof subtasks==='string'){ try{ subtasks=JSON.parse(subtasks||'[]'); }catch(e){ subtasks=[]; } }
+  return Object.assign({}, t, {subtasks: subtasks||[], quadrant:Number(t.quadrant)||4, status: t.status||'todo'});
+}
+function normGoal(g){
+  return Object.assign({phases:[], area:'other', unit:'', logs:[]}, g, {
+    phases: (g.phases||[]).map(p=>Object.assign({logs:[], weeks:[], status:'pending'}, p)),
+  });
+}
+
+/* ======================= CALENDAR API ======================= */
+async function calCreate(event){
+  const token=await ensureToken();
+  const res=await fetch(CAL_EVENTS, {method:'POST', headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'}, body:JSON.stringify(event)});
+  if(!res.ok) return null;
+  return await res.json();
+}
+async function calUpdate(id,event){
+  const token=await ensureToken();
+  const res=await fetch(CAL_EVENTS+'/'+id, {method:'PATCH', headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'}, body:JSON.stringify(event)});
+  if(!res.ok) return null;
+  return await res.json();
+}
+async function calDelete(id){
+  if(!id) return;
+  try{ const token=await ensureToken(); await fetch(CAL_EVENTS+'/'+id, {method:'DELETE', headers:{Authorization:'Bearer '+token}}); }catch(e){}
+}
+async function syncTaskEvent(t){
+  if(!t.dueDate) return t.calendarEventId||'';
+  /* Cả start lẫn end đều phải là giờ treo tường cùng một múi giờ. Trước đây end bị
+     đổi sang UTC nên end < start, Google trả lỗi 400 và nhắc hẹn không bao giờ được tạo. */
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Bangkok';
+  let start, end;
+  if(t.dueTime){
+    const s=new Date(`${t.dueDate}T${t.dueTime}:00`);
+    const e=new Date(s.getTime()+30*60000);
+    const wall = d => `${ymd(d)}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:00`;
+    start={dateTime:wall(s), timeZone:tz};
+    end={dateTime:wall(e), timeZone:tz};
+  } else {
+    start={date:t.dueDate};
+    end={date:addDays(t.dueDate,1)}; // Google yêu cầu end là ngày kế tiếp cho sự kiện cả ngày
+  }
+  const body = {
+    summary:'🍊 '+t.title, description:t.description||'', start, end,
+    reminders:{useDefault:false, overrides:[{method:'popup',minutes:30},{method:'popup',minutes:1440}]},
+  };
+  try{
+    if(t.calendarEventId){ const r=await calUpdate(t.calendarEventId, body); return r? r.id : t.calendarEventId; }
+    const r=await calCreate(body); return r? r.id : '';
+  }catch(e){ return t.calendarEventId||''; }
+}
+async function syncPersonEvent(p){
+  if(!p.date) return p.calendarEventId||'';
+  const icon = p.type==='birthday'?'🎂':(p.type==='anniversary'?'💛':'🍊');
+  const title = `${icon} ${p.name}${p.type==='birthday'?' - Sinh nhật':(p.relationship?' - '+p.relationship:'')}`;
+  /* Google giới hạn nhắc trước tối đa 40320 phút (4 tuần), vượt quá là lỗi 400 và
+     sự kiện không được tạo, nên phải kẹp lại. */
+  const remindMinutes = clamp(Number(p.reminderDaysBefore||0)*1440, 0, 40320);
+  const body = {
+    summary:title, description:p.notes||'',
+    start:{date:p.date}, end:{date: addDays(p.date,1)},
+    reminders:{useDefault:false, overrides:[{method:'popup', minutes: remindMinutes}]},
+  };
+  if(p.recurring!==false && p.recurring!=='false') body.recurrence=['RRULE:FREQ=YEARLY'];
+  try{
+    if(p.calendarEventId){ const r=await calUpdate(p.calendarEventId, body); return r? r.id : p.calendarEventId; }
+    const r=await calCreate(body); return r? r.id : '';
+  }catch(e){ return p.calendarEventId||''; }
+}
+
+/* ======================= DATA MUTATIONS (local + calendar + drive) ======================= */
+async function addTask(p){
+  const now=new Date().toISOString();
+  const t=Object.assign({id:uid(),status:'todo',subtasks:[],calendarEventId:'',createdAt:now,updatedAt:now,completedAt:''},p);
+  if(t.syncCalendar) t.calendarEventId = await syncTaskEvent(t);
+  state.tasks.push(t); scheduleSave();
+}
+async function updateTask(p){
+  const t=state.tasks.find(x=>x.id===p.id); if(!t) return;
+  const wasDone = t.status==='done';
+  Object.assign(t,p,{updatedAt:new Date().toISOString()});
+  if(p.status==='done' && !wasDone) t.completedAt=new Date().toISOString();
+  if(p.status && p.status!=='done') t.completedAt='';
+  if(t.syncCalendar && t.dueDate) t.calendarEventId = await syncTaskEvent(t);
+  else if(!t.syncCalendar && t.calendarEventId){ await calDelete(t.calendarEventId); t.calendarEventId=''; }
+  scheduleSave();
+}
+async function deleteTask(id){
+  const t=state.tasks.find(x=>x.id===id);
+  if(t && t.calendarEventId) await calDelete(t.calendarEventId);
+  state.tasks=state.tasks.filter(x=>x.id!==id); scheduleSave();
+}
+async function addPerson(p){
+  const now=new Date().toISOString();
+  const person=Object.assign({id:uid(),calendarEventId:'',createdAt:now},p);
+  person.calendarEventId = await syncPersonEvent(person);
+  state.people.push(person); scheduleSave();
+}
+async function updatePerson(p){
+  const person=state.people.find(x=>x.id===p.id); if(!person) return;
+  Object.assign(person,p);
+  person.calendarEventId = await syncPersonEvent(person);
+  scheduleSave();
+}
+async function deletePerson(id){
+  const p=state.people.find(x=>x.id===id);
+  if(p && p.calendarEventId) await calDelete(p.calendarEventId);
+  state.people=state.people.filter(x=>x.id!==id); scheduleSave();
+}
+async function addNote(p){
+  const now=new Date().toISOString();
+  state.notes.push(Object.assign({id:uid(),createdAt:now,updatedAt:now},p)); scheduleSave();
+}
+async function updateNote(p){
+  const n=state.notes.find(x=>x.id===p.id); if(!n) return;
+  Object.assign(n,p,{updatedAt:new Date().toISOString()}); scheduleSave();
+}
+async function deleteNote(id){ state.notes=state.notes.filter(x=>x.id!==id); scheduleSave(); }
+async function updateProfile(p){ Object.assign(state.profile,p); scheduleSave(); }
+
+/* ======================= RENDER SHELL ======================= */
+function renderNav(){
+  const nav=$('#nav'); nav.innerHTML='';
+  VIEWS.forEach(v=>{
+    const b=el('button','navbtn'+(state.view===v.id?' active':''), `<span class="ic">${v.icon}</span> ${v.label}`);
+    b.onclick=()=>{ if(v.id==='planner') state.planner={level:'list', goalId:null, phaseId:null}; state.view=v.id; renderAll(); };
+    nav.appendChild(b);
+  });
+  const su=$('#sidebarUser');
+  su.innerHTML = state.google.picture
+    ? `<img src="${escAttr(state.google.picture)}" referrerpolicy="no-referrer"><div>${esc(state.profile.name||state.google.name)}<br><span style="opacity:.75;">${esc(state.google.email)}</span></div>`
+    : `<div>${esc(state.profile.avatarEmoji)||'🍊'} ${esc(state.profile.name)||'Bạn'}</div>`;
+}
+function renderTopbar(){
+  const titles={home:['Trang chủ','Tổng quan việc hôm nay và sắp tới'],
+    planner:['Lộ trình mục tiêu','Chia mục tiêu lớn thành giai đoạn, chỉ tiêu tuần và nhật ký ngày'],
+    matrix:['Ma trận ưu tiên','Kéo-thả việc vào đúng ô Eisenhower'],
+    calendar:['Lịch','Xem việc & ngày đặc biệt theo tháng'],list:['Danh sách việc','Lọc, tìm kiếm, sắp xếp'],
+    people:['Ngày đặc biệt','Sinh nhật, kỷ niệm và các mốc quan trọng'],notes:['Ghi chú vặt','Những điều nhỏ nhặt cần nhớ'],
+    stats:['Thống kê','Theo dõi tiến độ của bạn'],settings:['Cài đặt','Tài khoản, hồ sơ, thông báo']};
+  $('#pageTitle').textContent = titles[state.view][0];
+  $('#pageSub').textContent = titles[state.view][1];
+  const cs=$('#connStatus');
+  if(state.saving){ cs.className='status-pill busy'; cs.textContent='● đang lưu...'; }
+  else if(state.saveError){ cs.className='status-pill off'; cs.textContent='● lỗi lưu, sẽ thử lại'; }
+  else{ cs.className='status-pill ok'; cs.textContent='● đã lưu vào Drive'; }
+}
+/* renderAll: vẽ lại có hoạt ảnh chuyển màn (dùng khi ĐỔI màn hình).
+   softRefresh: vẽ lại tại chỗ, GIỮ NGUYÊN vị trí cuộn và không chớp màn hình
+   (dùng sau mỗi thao tác thêm/sửa/xoá, để không có cảm giác "web bị load lại"). */
+function paintView(animate){
+  renderNav(); renderTopbar();
+  const c=$('#views');
+  const scrollY = window.scrollY;
+  const view=el('div','view'+(animate?' view-enter':' active'));
+  view.appendChild(RENDERERS[state.view]());
+  c.replaceChildren(view);
+  document.body.setAttribute('data-theme', state.theme);
+  if(animate){
+    requestAnimationFrame(()=>{ view.classList.add('active'); view.classList.remove('view-enter'); });
+    window.scrollTo({top:0, behavior:'instant'});
+  } else {
+    window.scrollTo({top:scrollY, behavior:'instant'});
+  }
+}
+function renderAll(){ paintView(true); }
+function softRefresh(){ paintView(false); }
+
+/* ======================= HOME ======================= */
+function RENDER_HOME(){
+  const wrap=el('div');
+  const today=todayStr();
+  const dueToday = state.tasks.filter(t=>t.status!=='done' && t.dueDate===today);
+  const overdue = state.tasks.filter(t=>t.status!=='done' && t.dueDate && t.dueDate<today);
+  const doneCount = state.tasks.filter(t=>t.status==='done').length;
+  const upcomingPeople = upcomingSpecialDates(14);
+
+  const stats=el('div','grid grid-4');
+  stats.appendChild(statCard(state.tasks.filter(t=>t.status==='doing').length,'🟡 Đang làm'));
+  stats.appendChild(statCard(dueToday.length,'Đến hạn hôm nay'));
+  stats.appendChild(statCard(overdue.length,'Quá hạn'));
+  stats.appendChild(statCard(doneCount,'Đã hoàn thành'));
+  wrap.appendChild(stats);
+
+  const hello=el('div','card',`<h2 style="margin:16px 0 4px;">Chào ${esc(state.profile.avatarEmoji)||'🍊'} ${esc(state.profile.name)||'bạn'}!</h2>
+    <div class="subtle">Hôm nay ${new Date().toLocaleDateString('vi-VN',{weekday:'long',day:'2-digit',month:'2-digit',year:'numeric'})}</div>`);
+  hello.style.marginTop='16px';
+  const addBtn=el('button','btn btn-primary','+ Thêm việc mới'); addBtn.style.marginTop='10px';
+  addBtn.onclick=()=>openTaskModal();
+  hello.appendChild(addBtn);
+  wrap.appendChild(hello);
+
+  const cols=el('div','grid grid-2'); cols.style.marginTop='16px';
+  const todayCard=el('div','card','<h3 style="margin-top:0;">📌 Cần chú ý</h3>');
+  const list=el('div');
+  [...overdue,...dueToday].slice(0,8).forEach(t=>list.appendChild(taskCard(t)));
+  if(overdue.length+dueToday.length===0) list.appendChild(el('div','empty','Không có việc gấp nào, thảnh thơi rồi 🍊'));
+  todayCard.appendChild(list); cols.appendChild(todayCard);
+
+  const bdayCard=el('div','card','<h3 style="margin-top:0;">🎂 Sắp tới (14 ngày)</h3>');
+  const blist=el('div');
+  upcomingPeople.forEach(p=>{
+    const row=el('div','taskcard');
+    row.innerHTML=`<div class="t-title">${p.icon} ${esc(p.name)}</div><div class="t-meta"><span class="due">${p.label}</span></div>`;
+    blist.appendChild(row);
+  });
+  if(upcomingPeople.length===0) blist.appendChild(el('div','empty','Chưa có ngày đặc biệt nào sắp tới'));
+  bdayCard.appendChild(blist); cols.appendChild(bdayCard);
+  wrap.appendChild(cols);
+
+  // Mục tiêu dài hạn: hiện ngay trang chủ để mỗi ngày mở app đều nhìn thấy bức tranh lớn
+  if(state.goals.length){
+    const gh=el('h2','section','🎯 Mục tiêu đang theo đuổi'); wrap.appendChild(gh);
+    const ggrid=el('div','grid grid-2');
+    state.goals.forEach(g=>{
+      const prog=goalProgressPct(g), timeP=goalTimePct(g);
+      const ai=activePhaseIndex(g); const ap=g.phases[ai];
+      const st=ap?phaseStats(ap):null;
+      const card=el('div','card');
+      card.innerHTML=`<div class="goal-title" style="font-size:15px;">${esc(g.title)}</div>
+        <div class="subtle">${ap?`${esc(ap.name)} · tuần này cần ${fmtNum(ap.weeklyTarget)} ${esc(ap.weeklyUnit)}`:'chưa có giai đoạn'}</div>
+        <div class="dual-bar" style="margin-top:8px;">
+          <div class="dual-row"><span class="dual-label">Kết quả</span><div class="bar-track"><div class="bar-fill" style="width:${prog}%"></div></div><span class="bar-val">${Math.round(prog)}%</span></div>
+          <div class="dual-row"><span class="dual-label">Thời gian</span><div class="bar-track"><div class="bar-fill bar-time" style="width:${timeP}%"></div></div><span class="bar-val">${Math.round(timeP)}%</span></div>
+        </div>
+        ${st?`<div class="subtle">Nỗ lực giai đoạn này: ${Math.round(st.pct)}%</div>`:''}`;
+      const goBtn=el('button','btn btn-ghost btn-sm','Mở lộ trình'); goBtn.style.marginTop='8px';
+      goBtn.onclick=()=>{ state.view='planner'; state.planner={level:'goal', goalId:g.id, phaseId:null}; renderAll(); };
+      card.appendChild(goBtn);
+      ggrid.appendChild(card);
+    });
+    wrap.appendChild(ggrid);
+  }
+  return wrap;
+}
+function statCard(num,label){ return el('div','stat-card',`<div class="stat-num">${num}</div><div class="stat-label">${label}</div>`); }
+function upcomingSpecialDates(withinDays){
+  const now=new Date(); now.setHours(0,0,0,0);
+  const out=[];
+  state.people.forEach(p=>{
+    if(!p.date) return;
+    const base=new Date(p.date+'T00:00:00');
+    let next=new Date(now.getFullYear(), base.getMonth(), base.getDate());
+    if(next<now) next=new Date(now.getFullYear()+1, base.getMonth(), base.getDate());
+    const d=daysBetween(now,next);
+    if(d<=withinDays){
+      out.push({name:p.name, icon:p.type==='birthday'?'🎂':(p.type==='anniversary'?'💛':'🍊'),
+        label: d===0?'Hôm nay!':(d===1?'Ngày mai':`${d} ngày nữa`), days:d});
+    }
+  });
+  return out.sort((a,b)=>a.days-b.days);
+}
+
+/* ======================= MATRIX ======================= */
+function RENDER_MATRIX(){
+  const wrap=el('div');
+  const addBtn=el('button','btn btn-primary','+ Thêm việc'); addBtn.onclick=()=>openTaskModal();
+  addBtn.style.marginBottom='14px'; wrap.appendChild(addBtn);
+  const grid=el('div','grid grid-2');
+  [1,2,3,4].forEach(q=>{
+    const info=QUADRANTS[q];
+    const box=el('div','quadrant '+info.cls);
+    box.dataset.q=q;
+    box.innerHTML=`<h3>${info.icon} ${info.label}</h3><div class="desc">${info.desc}</div>`;
+    const list=el('div');
+    state.tasks.filter(t=>t.quadrant===q).forEach(t=>list.appendChild(taskCard(t,true)));
+    if(state.tasks.filter(t=>t.quadrant===q).length===0) list.appendChild(el('div','empty','Kéo việc vào đây, hoặc bấm + Thêm việc'));
+    box.appendChild(list);
+    box.addEventListener('dragover', e=>{e.preventDefault(); box.classList.add('dragover');});
+    box.addEventListener('dragleave', ()=>box.classList.remove('dragover'));
+    box.addEventListener('drop', async e=>{
+      e.preventDefault(); box.classList.remove('dragover');
+      const id=e.dataTransfer.getData('text/plain');
+      const t=state.tasks.find(x=>x.id===id); if(!t) return;
+      await updateTask({id, quadrant:q});
+      softRefresh();
+    });
+    grid.appendChild(box);
+  });
+  wrap.appendChild(grid);
+  return wrap;
+}
+
+/* ======================= TASK CARD ======================= */
+function taskCard(t, draggable){
+  const card=el('div','taskcard'+(t.status==='done'?' done':'')+(t.status==='doing'?' doing':''));
+  if(draggable){ card.draggable=true; card.addEventListener('dragstart', e=>e.dataTransfer.setData('text/plain', t.id)); }
+  const overdue = t.dueDate && t.dueDate<todayStr() && t.status!=='done';
+  const subDone = (t.subtasks||[]).filter(s=>s.done).length;
+  card.innerHTML=`
+    <div class="t-title">${STATUS_META[t.status||'todo'].dot} ${esc(t.title)||'(chưa đặt tên)'}</div>
+    <div class="t-meta">
+      ${t.status==='doing'?'<span class="tag tag-doing">Đang làm</span>':''}
+      ${t.dueDate?`<span class="due ${overdue?'overdue':''}">📅 ${fmtDate(t.dueDate)}${t.dueTime?' · '+t.dueTime:''}</span>`:''}
+      ${t.tags?String(t.tags).split(',').filter(Boolean).map(tag=>`<span class="tag">${esc(tag.trim())}</span>`).join(''):''}
+      ${(t.subtasks&&t.subtasks.length)?`<span class="due">✅ ${subDone}/${t.subtasks.length}</span>`:''}
+      ${t.calendarEventId?'<span class="due">📆 đã đồng bộ</span>':''}
+    </div>
+    <div class="t-actions"></div>`;
+  const actions=$('.t-actions',card);
+  // Vòng trạng thái: Chưa làm -> Đang làm -> Hoàn thành -> Chưa làm
+  const nextStatus = {todo:'doing', doing:'done', done:'todo'};
+  const nextLabel = {todo:'▶ Bắt đầu làm', doing:'✔ Hoàn thành', done:'↩︎ Mở lại'};
+  const cycleBtn=el('button', null, nextLabel[t.status||'todo']);
+  cycleBtn.onclick=async()=>{ await updateTask({id:t.id, status: nextStatus[t.status||'todo']}); softRefresh(); };
+  const editBtn=el('button',null,'✎ Sửa'); editBtn.onclick=()=>openTaskModal(t);
+  const delBtn=el('button',null,'🗑'); delBtn.onclick=()=>confirmDelete('Xoá việc này?', async()=>{ await deleteTask(t.id); softRefresh(); });
+  actions.append(cycleBtn, editBtn, delBtn);
+  return card;
+}
+
+/* ======================= TASK MODAL ======================= */
+/* forceNew=true dùng khi bấm vào 1 ô ngày trên Lịch: có sẵn ngày nhưng vẫn là TẠO MỚI,
+   không phải sửa (trước đây bị nhận nhầm là sửa nên việc tạo từ Lịch bị mất trắng). */
+function openTaskModal(t, forceNew){
+  const isEdit = !!t && !forceNew && !!t.id;
+  t=t||{quadrant:4,status:'todo',subtasks:[]};
+  const body=$('#modalBody');
+  body.innerHTML=`<h2>${isEdit?'Sửa việc':'Thêm việc mới'} 🍊</h2>
+    <label>Tên việc</label><input id="f-title" value="${escAttr(t.title)}" placeholder="VD: Gửi báo cáo tuần">
+    <label>Mô tả</label><textarea id="f-desc" rows="2">${esc(t.description)}</textarea>
+    <div class="field-row">
+      <div><label>Hạn (ngày)</label><input type="date" id="f-date" value="${t.dueDate||''}"></div>
+      <div><label>Giờ (tuỳ chọn)</label><input type="time" id="f-time" value="${t.dueTime||''}"></div>
+    </div>
+    <label>Mức ưu tiên (Eisenhower)</label>
+    <select id="f-quad">
+      ${[1,2,3,4].map(q=>`<option value="${q}" ${t.quadrant==q?'selected':''}>${QUADRANTS[q].icon} ${QUADRANTS[q].label}</option>`).join('')}
+    </select>
+    <label>Trạng thái</label>
+    <select id="f-status">
+      ${['todo','doing','done'].map(s=>`<option value="${s}" ${(t.status||'todo')===s?'selected':''}>${STATUS_META[s].dot} ${STATUS_META[s].label}</option>`).join('')}
+    </select>
+    <label>Nhãn (cách nhau bởi dấu phẩy)</label><input id="f-tags" value="${escAttr(t.tags)}" placeholder="công việc, gấp">
+    <label class="switch" style="margin-top:12px;"><input type="checkbox" id="f-sync" ${t.syncCalendar?'checked':''}> Đồng bộ vào Google Calendar (nhắc hẹn thật)</label>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="mCancel">Huỷ</button>
+      <button class="btn btn-primary" id="mSave">${isEdit?'Lưu':'Thêm'}</button>
+    </div>`;
+  $('#modalBg').classList.add('show');
+  $m('#mCancel').onclick=closeModal;
+  $m('#mSave').onclick=async()=>{
+    const payload={
+      title:$m('#f-title').value.trim(), description:$m('#f-desc').value,
+      dueDate:$m('#f-date').value, dueTime:$m('#f-time').value,
+      quadrant:Number($m('#f-quad').value), status:$m('#f-status').value,
+      tags:$m('#f-tags').value, syncCalendar:$m('#f-sync').checked,
+    };
+    if(!payload.title){ toast('Nhập tên việc đã bạn ơi'); return; }
+    closeModal();
+    if(isEdit){ payload.id=t.id; await updateTask(payload); } else { await addTask(payload); }
+    softRefresh(); toast('Đã lưu 🍊');
+  };
+}
+function closeModal(){
+  const bg=$('#modalBg');
+  bg.classList.add('closing');
+  setTimeout(()=>{ bg.classList.remove('show'); bg.classList.remove('closing'); }, 180);
+}
+/* Hộp thoại xác nhận riêng, có hoạt ảnh, thay cho confirm() mặc định của trình duyệt
+   (confirm() làm đứng trang và trông rất thô). */
+function confirmDelete(message, onYes){
+  const body=$('#modalBody');
+  body.innerHTML=`<h2>Xác nhận</h2>
+    <p class="subtle" style="margin:8px 0 0;">${esc(message)}</p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="cf-no">Huỷ</button>
+      <button class="btn btn-danger-solid" id="cf-yes">Xoá</button>
+    </div>`;
+  $('#modalBg').classList.add('show');
+  $m('#cf-no').onclick=closeModal;
+  $m('#cf-yes').onclick=async()=>{ closeModal(); await onYes(); };
+}
+$('#modalBg').addEventListener('click', e=>{ if(e.target.id==='modalBg') closeModal(); });
+
+/* ======================= CALENDAR VIEW ======================= */
+function RENDER_CALENDAR(){
+  const wrap=el('div','card');
+  const head=el('div'); head.style.cssText='display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;';
+  const monthNames=['Th1','Th2','Th3','Th4','Th5','Th6','Th7','Th8','Th9','Th10','Th11','Th12'];
+  head.innerHTML=`<button class="btn btn-ghost btn-sm" id="prevM">‹ Trước</button>
+    <div style="font-weight:800;">${monthNames[state.calMonth]} ${state.calYear}</div>
+    <button class="btn btn-ghost btn-sm" id="nextM">Sau ›</button>`;
+  wrap.appendChild(head);
+  const dow=el('div','cal-grid');
+  ['CN','T2','T3','T4','T5','T6','T7'].forEach(d=>dow.appendChild(el('div','cal-dow',d)));
+  wrap.appendChild(dow);
+  const grid=el('div','cal-grid'); grid.style.marginTop='6px';
+  const first=new Date(state.calYear, state.calMonth, 1);
+  const startOffset=first.getDay();
+  const daysInMonth=new Date(state.calYear, state.calMonth+1, 0).getDate();
+  const todayS=todayStr();
+  for(let i=0;i<startOffset;i++) grid.appendChild(el('div','cal-day',''));
+  for(let d=1; d<=daysInMonth; d++){
+    const dateStr=`${state.calYear}-${String(state.calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const day=el('div','cal-day'+(dateStr===todayS?' today':''));
+    day.innerHTML=`<div class="dnum">${d}</div>`;
+    state.tasks.filter(t=>t.dueDate===dateStr).forEach(t=>{ const ev=el('div','evt'); ev.textContent=t.title||''; ev.title=t.title||''; day.appendChild(ev); });
+    state.people.forEach(p=>{
+      if(!p.date) return;
+      const base=new Date(p.date+'T00:00:00');
+      if(base.getDate()===d && base.getMonth()===state.calMonth){
+        { const ev=el('div','evt bday'); ev.textContent='🎂 '+(p.name||''); day.appendChild(ev); }
+      }
+    });
+    day.onclick=()=>openTaskModal({dueDate:dateStr,quadrant:4,status:'todo',subtasks:[]}, true);
+    grid.appendChild(day);
+  }
+  wrap.appendChild(grid);
+  setTimeout(()=>{
+    document.getElementById('prevM').onclick=()=>{ state.calMonth--; if(state.calMonth<0){state.calMonth=11; state.calYear--;} renderAll(); };
+    document.getElementById('nextM').onclick=()=>{ state.calMonth++; if(state.calMonth>11){state.calMonth=0; state.calYear++;} renderAll(); };
+  });
+  return wrap;
+}
+
+/* ======================= LIST ======================= */
+function RENDER_LIST(){
+  const wrap=el('div');
+  const addBtn=el('button','btn btn-primary','+ Thêm việc'); addBtn.style.margin='0 0 14px';
+  addBtn.onclick=()=>openTaskModal();
+  wrap.appendChild(addBtn);
+
+  /* Dùng tham chiếu phần tử trực tiếp thay vì id để không bao giờ đụng id với hộp thoại.
+     Giá trị bộ lọc được giữ trong state nên không bị mất khi giao diện vẽ lại. */
+  const f = state.listFilter;
+  const toolbar=el('div','card'); toolbar.style.marginBottom='14px';
+  const row=el('div','field-row');
+  const searchWrap=el('div','', '<label>Tìm kiếm</label>');
+  const searchInput=el('input'); searchInput.placeholder='Tên việc...'; searchInput.value=f.q||'';
+  searchWrap.appendChild(searchInput);
+  const stWrap=el('div','', '<label>Trạng thái</label>');
+  const stSel=el('select');
+  stSel.innerHTML=`<option value="">Tất cả</option>${['todo','doing','done'].map(s=>`<option value="${s}">${STATUS_META[s].dot} ${STATUS_META[s].label}</option>`).join('')}`;
+  stSel.value=f.status||''; stWrap.appendChild(stSel);
+  const qWrap=el('div','', '<label>Ưu tiên</label>');
+  const qSel=el('select');
+  qSel.innerHTML=`<option value="">Tất cả</option>${[1,2,3,4].map(q=>`<option value="${q}">${QUADRANTS[q].icon} ${esc(QUADRANTS[q].label)}</option>`).join('')}`;
+  qSel.value=f.quadrant||''; qWrap.appendChild(qSel);
+  row.append(searchWrap, stWrap, qWrap); toolbar.appendChild(row); wrap.appendChild(toolbar);
+
+  const tableCard=el('div','card');
+  const tbl=el('table'); tbl.innerHTML='<thead><tr><th>Việc</th><th>Ưu tiên</th><th>Hạn</th><th>Trạng thái</th><th></th></tr></thead>';
+  const tbody=el('tbody'); tbl.appendChild(tbody); tableCard.appendChild(tbl); wrap.appendChild(tableCard);
+
+  function draw(){
+    state.listFilter={q:searchInput.value, status:stSel.value, quadrant:qSel.value};
+    const q=searchInput.value.toLowerCase(), st=stSel.value, qf=qSel.value;
+    tbody.innerHTML='';
+    const rows=state.tasks.filter(t=>
+      (!q || (t.title||'').toLowerCase().includes(q)) &&
+      (!st || (t.status||'todo')===st) && (!qf || String(t.quadrant)===qf)
+    ).sort((a,b)=>(a.dueDate||'9999').localeCompare(b.dueDate||'9999'));
+    if(rows.length===0){ tbody.innerHTML='<tr><td colspan="5" class="empty">Không có việc nào khớp</td></tr>'; return; }
+    rows.forEach(t=>{
+      const tr=el('tr');
+      const sm=STATUS_META[t.status||'todo'];
+      tr.innerHTML=`<td>${esc(t.title)}</td><td>${QUADRANTS[t.quadrant].icon} ${esc(QUADRANTS[t.quadrant].label)}</td>
+        <td>${fmtDate(t.dueDate)||'-'}</td><td>${sm.dot} ${sm.label}</td><td></td>`;
+      const tdBtn=tr.lastElementChild;
+      const editBtn=el('button','btn btn-ghost btn-sm','Sửa'); editBtn.onclick=()=>openTaskModal(t);
+      const delBtn=el('button','btn btn-danger btn-sm','Xoá'); delBtn.style.marginLeft='6px';
+      delBtn.onclick=()=>confirmDelete('Xoá việc này?', async()=>{ await deleteTask(t.id); softRefresh(); });
+      tdBtn.append(editBtn, delBtn);
+      tbody.appendChild(tr);
+    });
+  }
+  searchInput.addEventListener('input', draw);
+  stSel.addEventListener('change', draw);
+  qSel.addEventListener('change', draw);
+  draw();
+  return wrap;
+}
+
+/* ======================= PEOPLE / NGÀY ĐẶC BIỆT ======================= */
+function RENDER_PEOPLE(){
+  const wrap=el('div');
+  const addBtn=el('button','btn btn-primary','+ Thêm ngày đặc biệt'); addBtn.style.marginBottom='14px';
+  addBtn.onclick=()=>openPersonModal();
+  wrap.appendChild(addBtn);
+  const grid=el('div','grid grid-3');
+  const sorted=[...state.people].sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+  sorted.forEach(p=>{
+    const c=el('div','card');
+    const icon = p.type==='birthday'?'🎂':(p.type==='anniversary'?'💛':'🍊');
+    c.innerHTML=`<div style="font-size:26px;">${icon}</div>
+      <div class="t-title" style="margin-top:6px;">${esc(p.name)}</div>
+      <div class="subtle">${esc(p.relationship)}</div>
+      <div class="due" style="margin-top:6px;">📅 ${fmtDate(p.date)} ${p.recurring!==false&&p.recurring!=='false'?'· hàng năm':''}</div>
+      ${p.calendarEventId?'<div class="due">📆 đã tạo nhắc hẹn Calendar</div>':''}
+      ${p.notes?`<div class="subtle" style="margin-top:6px;">${esc(p.notes)}</div>`:''}
+      <div class="t-actions"></div>`;
+    const actions=$('.t-actions',c);
+    const editBtn=el('button',null,'✎ Sửa'); editBtn.onclick=()=>openPersonModal(p);
+    const delBtn=el('button',null,'🗑'); delBtn.onclick=()=>confirmDelete('Xoá ngày đặc biệt này? Nhắc hẹn trên Google Calendar cũng sẽ bị xoá.', async()=>{ await deletePerson(p.id); softRefresh(); });
+    actions.append(editBtn, delBtn);
+    grid.appendChild(c);
+  });
+  if(sorted.length===0) grid.appendChild(el('div','empty','Chưa có ngày đặc biệt nào, thêm sinh nhật người thân, bạn bè để không quên nhé 🎂'));
+  wrap.appendChild(grid);
+  return wrap;
+}
+function openPersonModal(p){
+  const isEdit=!!p; p=p||{type:'birthday', recurring:true, reminderDaysBefore:1};
+  const body=$('#modalBody');
+  body.innerHTML=`<h2>${isEdit?'Sửa':'Thêm'} ngày đặc biệt 🎂</h2>
+    <label>Tên</label><input id="p-name" value="${escAttr(p.name)}" placeholder="VD: Mẹ, Anh Nam...">
+    <label>Mối quan hệ / ghi chú ngắn</label><input id="p-rel" value="${escAttr(p.relationship)}" placeholder="Mẹ, bạn thân, đồng nghiệp...">
+    <div class="field-row">
+      <div><label>Loại</label><select id="p-type">
+        <option value="birthday" ${p.type==='birthday'?'selected':''}>🎂 Sinh nhật</option>
+        <option value="anniversary" ${p.type==='anniversary'?'selected':''}>💛 Kỷ niệm</option>
+        <option value="other" ${p.type==='other'?'selected':''}>🍊 Khác</option>
+      </select></div>
+      <div><label>Ngày</label><input type="date" id="p-date" value="${p.date||''}"></div>
+    </div>
+    <label class="switch" style="margin-top:12px;"><input type="checkbox" id="p-recur" ${p.recurring!==false&&p.recurring!=='false'?'checked':''}> Lặp lại hàng năm</label>
+    <label>Nhắc trước (số ngày)</label><input type="number" id="p-remind" min="0" max="30" value="${p.reminderDaysBefore!=null?p.reminderDaysBefore:1}">
+    <label>Ghi chú (quà tặng, sở thích...)</label><textarea id="p-notes" rows="2">${esc(p.notes)}</textarea>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="mCancel">Huỷ</button>
+      <button class="btn btn-primary" id="mSave">${isEdit?'Lưu':'Thêm'}</button>
+    </div>`;
+  $('#modalBg').classList.add('show');
+  $m('#mCancel').onclick=closeModal;
+  $m('#mSave').onclick=async()=>{
+    const payload={ name:$m('#p-name').value.trim(), relationship:$m('#p-rel').value, type:$m('#p-type').value,
+      date:$m('#p-date').value, recurring:$m('#p-recur').checked, reminderDaysBefore:Number($m('#p-remind').value||0), notes:$m('#p-notes').value };
+    if(!payload.name||!payload.date){ toast('Nhập tên và ngày nhé'); return; }
+    closeModal();
+    if(isEdit){ payload.id=p.id; await updatePerson(payload); } else { await addPerson(payload); }
+    softRefresh(); toast('Đã lưu 🎂 · đã tạo nhắc hẹn Google Calendar');
+  };
+}
+
+/* ======================= NOTES ======================= */
+function RENDER_NOTES(){
+  const wrap=el('div');
+  const addBtn=el('button','btn btn-primary','+ Ghi chú mới'); addBtn.style.marginBottom='14px';
+  addBtn.onclick=()=>openNoteModal();
+  wrap.appendChild(addBtn);
+  const grid=el('div','grid grid-3');
+  const sorted=[...state.notes].sort((a,b)=>(b.pinned?1:0)-(a.pinned?1:0));
+  sorted.forEach(n=>{
+    const c=el('div','note'+(n.pinned?' pinned':''));
+    c.innerHTML=`<div class="note-cat">${n.pinned?'📌 ':''}${esc(n.category)||'chung'}</div>
+      <div style="margin:8px 0;white-space:pre-wrap;">${esc(n.content)}</div>
+      <div class="t-actions"></div>`;
+    const actions=$('.t-actions',c);
+    const editBtn=el('button',null,'✎'); editBtn.onclick=()=>openNoteModal(n);
+    const delBtn=el('button',null,'🗑'); delBtn.onclick=()=>confirmDelete('Xoá ghi chú này?', async()=>{ await deleteNote(n.id); softRefresh(); });
+    actions.append(editBtn, delBtn);
+    grid.appendChild(c);
+  });
+  if(sorted.length===0) grid.appendChild(el('div','empty','Chưa có ghi chú nào. Ghi lại những điều vặt vãnh bạn hay quên ở đây 📝'));
+  wrap.appendChild(grid);
+  return wrap;
+}
+function openNoteModal(n){
+  const isEdit=!!n; n=n||{category:'chung'};
+  const body=$('#modalBody');
+  body.innerHTML=`<h2>${isEdit?'Sửa':'Thêm'} ghi chú 📝</h2>
+    <label>Nội dung</label><textarea id="n-content" rows="4">${esc(n.content)}</textarea>
+    <label>Danh mục</label><input id="n-cat" value="${escAttr(n.category||'chung')}" placeholder="mua sắm, ý tưởng, mật khẩu...">
+    <label class="switch" style="margin-top:12px;"><input type="checkbox" id="n-pin" ${n.pinned?'checked':''}> Ghim lên đầu</label>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="mCancel">Huỷ</button>
+      <button class="btn btn-primary" id="mSave">${isEdit?'Lưu':'Thêm'}</button>
+    </div>`;
+  $('#modalBg').classList.add('show');
+  $m('#mCancel').onclick=closeModal;
+  $m('#mSave').onclick=async()=>{
+    const payload={content:$m('#n-content').value.trim(), category:$m('#n-cat').value, pinned:$m('#n-pin').checked};
+    if(!payload.content){ toast('Viết gì đó đã bạn ơi'); return; }
+    closeModal();
+    if(isEdit){ payload.id=n.id; await updateNote(payload); } else { await addNote(payload); }
+    softRefresh(); toast('Đã lưu 📝');
+  };
+}
+
+/* ======================= LỘ TRÌNH MỤC TIÊU (GOAL PLANNER) =======================
+   Mô hình tham khảo: Periodization trong khoa học thể thao (macrocycle = Mục tiêu lớn,
+   mesocycle = Phase, microcycle = tuần) kết hợp OKR (mục tiêu luôn gắn với 1 con số đo
+   được) và Retrospective của Agile (cuối mỗi phase đối chiếu kỳ vọng vs thực tế rồi
+   điều chỉnh kế hoạch phase sau). */
+
+function fmtNum(n){
+  if(n===null||n===undefined||n==='') return '—';
+  const num=Number(n);
+  if(Number.isNaN(num)) return String(n);
+  return Number.isInteger(num)? String(num) : String(Math.round(num*100)/100);
+}
+function addDays(dateStr, days){
+  const d=new Date(dateStr+'T00:00:00'); d.setDate(d.getDate()+days);
+  return ymd(d); // dùng ngày địa phương, tránh lệch múi giờ
+}
+function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
+
+/* ---- Tính toán ---- */
+function goalById(id){ return state.goals.find(g=>g.id===id); }
+function phaseById(goal, pid){ return goal? (goal.phases||[]).find(p=>p.id===pid) : null; }
+
+/* Giá trị xuất phát của 1 phase: lấy kết quả thực tế của phase trước nếu đã có,
+   nếu chưa thì lấy kỳ vọng của phase trước, phase đầu tiên thì lấy điểm xuất phát của goal. */
+function phaseStartValue(goal, index){
+  if(index<=0) return Number(goal.startValue)||0;
+  const prev=goal.phases[index-1];
+  if(prev.actualValue!==null && prev.actualValue!==undefined && prev.actualValue!=='') return Number(prev.actualValue);
+  if(prev.expectedValue!==null && prev.expectedValue!==undefined && prev.expectedValue!=='') return Number(prev.expectedValue);
+  return Number(goal.startValue)||0;
+}
+function weeksOfPhase(phase){
+  if(!phase.startDate||!phase.endDate) return [];
+  const out=[]; let cur=phase.startDate; let i=1;
+  let guard=0;
+  while(cur<=phase.endDate && guard++<520){
+    let end=addDays(cur,6);
+    if(end>phase.endDate) end=phase.endDate;
+    out.push({index:i++, start:cur, end});
+    cur=addDays(end,1);
+  }
+  return out;
+}
+function phaseStats(phase){
+  const weeks=weeksOfPhase(phase);
+  const target=Number(phase.weeklyTarget)||0;
+  const totalTarget=target*weeks.length;
+  const logs=phase.logs||[];
+  const totalActual=logs.reduce((s,l)=>s+(Number(l.amount)||0),0);
+  const pct = totalTarget>0 ? clamp(totalActual/totalTarget*100, 0, 999) : 0;
+  const today=todayStr();
+  const weekRows=weeks.map(w=>{
+    const actual=logs.filter(l=>l.date>=w.start && l.date<=w.end).reduce((s,l)=>s+(Number(l.amount)||0),0);
+    return Object.assign({}, w, {target, actual, pct: target>0? clamp(actual/target*100,0,999):0, elapsed: w.end<today});
+  });
+  // Nhịp thật sự duy trì được: tính trên các tuần ĐÃ TRÔI QUA, không tính các tuần
+  // còn ở tương lai (nếu không, giai đoạn mới bắt đầu sẽ luôn bị coi là "làm quá ít").
+  const elapsedWeeks=weekRows.filter(w=>w.elapsed);
+  const elapsedActual=elapsedWeeks.reduce((s,w)=>s+w.actual,0);
+  const avgWeeklyActual = elapsedWeeks.length ? elapsedActual/elapsedWeeks.length : null;
+  const elapsedPct = (elapsedWeeks.length && target>0) ? clamp(elapsedActual/(target*elapsedWeeks.length)*100,0,999) : null;
+  return {weeks:weekRows, totalTarget, totalActual, pct, elapsedWeeks:elapsedWeeks.length, avgWeeklyActual, elapsedPct};
+}
+/* Cột "ước chừng": suy ra kết quả dự kiến từ % hoàn thành nhật ký, đặt cạnh
+   kỳ vọng ban đầu và kết quả thực tế người dùng tự nhập. */
+function hasVal(v){ return v!==null && v!==undefined && v!=='' && Number.isFinite(Number(v)); }
+function phaseEstimate(goal, index){
+  const phase=goal.phases[index];
+  const st=phaseStartValue(goal,index);
+  if(!hasVal(phase.expectedValue)) return null; // chưa đặt kỳ vọng thì không đoán bừa là 0
+  const exp=Number(phase.expectedValue);
+  const {pct}=phaseStats(phase);
+  return st + (exp-st)*clamp(pct/100,0,1.2);
+}
+function goalCurrentValue(goal){
+  for(let i=goal.phases.length-1;i>=0;i--){
+    const a=goal.phases[i].actualValue;
+    if(a!==null && a!==undefined && a!=='') return Number(a);
+  }
+  return Number(goal.startValue)||0;
+}
+function goalProgressPct(goal){
+  const s=Number(goal.startValue)||0, t=Number(goal.targetValue)||0;
+  const cur=goalCurrentValue(goal);
+  if(t===s) return 0;
+  return clamp((cur-s)/(t-s)*100, 0, 100);
+}
+function goalTimePct(goal){
+  if(!goal.startDate||!goal.targetDate) return 0;
+  const s=new Date(goal.startDate+'T00:00:00'), t=new Date(goal.targetDate+'T00:00:00'), n=new Date();
+  if(t<=s) return 0;
+  return clamp((n-s)/(t-s)*100, 0, 100);
+}
+function activePhaseIndex(goal){
+  const today=todayStr();
+  const i=goal.phases.findIndex(p=>p.startDate<=today && today<=p.endDate);
+  if(i>=0) return i;
+  const firstUnfinished=goal.phases.findIndex(p=>p.actualValue===null||p.actualValue===undefined||p.actualValue==='');
+  return firstUnfinished>=0? firstUnfinished : goal.phases.length-1;
+}
+
+/* ---- CRUD ---- */
+async function addGoal(g){
+  const now=new Date().toISOString();
+  state.goals.push(Object.assign({id:uid(), phases:[], createdAt:now}, g));
+  scheduleSave();
+}
+async function updateGoal(id, patch){
+  const g=goalById(id); if(!g) return;
+  Object.assign(g, patch); scheduleSave();
+}
+async function deleteGoal(id){
+  const g=goalById(id);
+  if(g){ // xoá luôn các task đã sinh ra từ nhật ký của goal này
+    const linked=new Set();
+    (g.phases||[]).forEach(p=>(p.logs||[]).forEach(l=>{ if(l.taskId) linked.add(l.taskId); }));
+    for(const tid of linked){ await deleteTask(tid); }
+  }
+  state.goals=state.goals.filter(x=>x.id!==id); scheduleSave();
+}
+async function updatePhase(goalId, phaseId, patch){
+  const g=goalById(goalId); const p=phaseById(g,phaseId); if(!p) return;
+  Object.assign(p, patch); scheduleSave();
+}
+async function deletePhase(goalId, phaseId){
+  const g=goalById(goalId); if(!g) return;
+  const p=phaseById(g,phaseId);
+  if(p){ for(const l of (p.logs||[])){ if(l.taskId) await deleteTask(l.taskId); } }
+  g.phases=g.phases.filter(x=>x.id!==phaseId); scheduleSave();
+}
+/* Thêm nhật ký ngày, đồng thời tạo 1 Task tương ứng để việc này cũng xuất hiện
+   trong Ma trận / Danh sách / Lịch như mọi việc khác (đúng yêu cầu không quản 2 nơi). */
+async function addPhaseLog(goalId, phaseId, log){
+  const g=goalById(goalId); const p=phaseById(g,phaseId); if(!p) return;
+  const entry=Object.assign({id:uid()}, log);
+  if(log.createTask){
+    const before=state.tasks.length;
+    await addTask({
+      title:`[${g.title}] ${log.note||'Buổi học/tập'}`,
+      description:`Nhật ký lộ trình · ${p.name} · ${fmtNum(log.amount)} ${p.weeklyUnit||''}`,
+      dueDate:log.date, quadrant:2, status:'done',
+      tags:g.title, syncCalendar:false,
+    });
+    if(state.tasks.length>before) entry.taskId=state.tasks[state.tasks.length-1].id;
+  }
+  delete entry.createTask;
+  p.logs=p.logs||[]; p.logs.push(entry);
+  scheduleSave();
+}
+async function deletePhaseLog(goalId, phaseId, logId){
+  const g=goalById(goalId); const p=phaseById(g,phaseId); if(!p) return;
+  const l=(p.logs||[]).find(x=>x.id===logId);
+  if(l && l.taskId) await deleteTask(l.taskId);
+  p.logs=(p.logs||[]).filter(x=>x.id!==logId); scheduleSave();
+}
+
+/* ---- Render: điều phối 3 cấp (danh sách goal / chi tiết goal / chi tiết phase) ---- */
+function RENDER_PLANNER(){
+  const lvl=state.planner.level;
+  if(lvl==='goal') return RENDER_GOAL_DETAIL();
+  if(lvl==='phase') return RENDER_PHASE_DETAIL();
+  return RENDER_GOAL_LIST();
+}
+
+function RENDER_GOAL_LIST(){
+  const wrap=el('div');
+  const intro=el('div','banner',`<strong>🎯 Lộ trình mục tiêu</strong> giúp bạn biến 1 mục tiêu lớn (IELTS 7.0, giảm 10kg,
+    doanh thu 100 triệu...) thành các giai đoạn có kỳ vọng rõ ràng, chỉ tiêu mỗi tuần và nhật ký mỗi ngày,
+    rồi cuối mỗi giai đoạn đối chiếu kỳ vọng với thực tế để điều chỉnh kế hoạch cho sát sức mình hơn.`);
+  wrap.appendChild(intro);
+  const addBtn=el('button','btn btn-primary','+ Tạo mục tiêu mới'); addBtn.style.marginBottom='14px';
+  addBtn.onclick=()=>openGoalModal();
+  wrap.appendChild(addBtn);
+
+  const grid=el('div','grid grid-2');
+  state.goals.forEach(g=>{
+    const area=GOAL_AREAS.find(a=>a.id===g.area)||GOAL_AREAS[5];
+    const prog=goalProgressPct(g), timeP=goalTimePct(g);
+    const ai=activePhaseIndex(g);
+    const ap=g.phases[ai];
+    const pace = prog>=timeP ? '<span class="pace-ok">đang đúng/vượt tiến độ</span>' : '<span class="pace-slow">đang chậm hơn kế hoạch</span>';
+    const c=el('div','card goal-card');
+    c.innerHTML=`
+      <div class="goal-head">
+        <div class="goal-area">${area.icon} ${area.label}</div>
+        <div class="goal-title">${esc(g.title)}</div>
+        <div class="subtle">${fmtNum(g.startValue)} → ${fmtNum(g.targetValue)} ${esc(g.unit)} · ${fmtDate(g.startDate)} đến ${fmtDate(g.targetDate)}</div>
+      </div>
+      <div class="dual-bar">
+        <div class="dual-row"><span class="dual-label">Kết quả</span>
+          <div class="bar-track"><div class="bar-fill" style="width:${prog}%"></div></div>
+          <span class="bar-val">${Math.round(prog)}%</span></div>
+        <div class="dual-row"><span class="dual-label">Thời gian</span>
+          <div class="bar-track"><div class="bar-fill bar-time" style="width:${timeP}%"></div></div>
+          <span class="bar-val">${Math.round(timeP)}%</span></div>
+      </div>
+      <div class="subtle" style="margin-top:8px;">Hiện tại: ${fmtNum(goalCurrentValue(g))} ${g.unit||''} · ${pace}</div>
+      ${ap?`<div class="phase-chip">Giai đoạn hiện tại: <strong>${esc(ap.name)}</strong> (${fmtDate(ap.startDate)} - ${fmtDate(ap.endDate)})</div>`:'<div class="subtle" style="margin-top:6px;">Chưa có giai đoạn nào</div>'}
+      <div class="t-actions"></div>`;
+    const actions=$('.t-actions',c);
+    const openBtn=el('button','btn btn-primary btn-sm','Mở lộ trình');
+    openBtn.onclick=()=>{ state.planner={level:'goal', goalId:g.id, phaseId:null}; renderAll(); };
+    const editBtn=el('button','btn btn-ghost btn-sm','Sửa'); editBtn.style.marginLeft='6px';
+    editBtn.onclick=()=>openGoalModal(g);
+    const delBtn=el('button','btn btn-danger btn-sm','Xoá'); delBtn.style.marginLeft='6px';
+    delBtn.onclick=()=>confirmDelete(`Xoá mục tiêu "${g.title}" và toàn bộ giai đoạn, nhật ký bên trong?`, async()=>{ await deleteGoal(g.id); softRefresh(); });
+    actions.append(openBtn, editBtn, delBtn);
+    grid.appendChild(c);
+  });
+  if(state.goals.length===0){
+    grid.appendChild(el('div','empty','Chưa có mục tiêu nào. Bấm "Tạo mục tiêu mới" để bắt đầu lộ trình đầu tiên của bạn 🎯'));
+  }
+  wrap.appendChild(grid);
+  return wrap;
+}
+
+/* ---- Modal tạo/sửa mục tiêu, kèm gợi ý sườn giai đoạn ---- */
+function openGoalModal(g){
+  const isEdit=!!g;
+  const today=todayStr();
+  g=g||{area:'study', unit:'band', startValue:0, targetValue:0, startDate:today, targetDate:addDays(today,180)};
+  const body=$('#modalBody');
+  body.innerHTML=`<h2>${isEdit?'Sửa mục tiêu':'Tạo mục tiêu mới'} 🎯</h2>
+    <label>Tên mục tiêu</label><input id="g-title" value="${escAttr(g.title)}" placeholder="VD: Đạt IELTS 7.0">
+    <label>Lĩnh vực</label>
+    <select id="g-area">${GOAL_AREAS.map(a=>`<option value="${a.id}" ${g.area===a.id?'selected':''}>${a.icon} ${a.label}</option>`).join('')}</select>
+    <label>Đơn vị đo lường</label>
+    <select id="g-unitpreset">
+      ${UNIT_PRESETS.map(u=>`<option value="${u.unit}" ${g.unit===u.unit?'selected':''}>${u.label}</option>`).join('')}
+      <option value="__custom" ${UNIT_PRESETS.every(u=>u.unit!==g.unit)&&g.unit?'selected':''}>Đơn vị khác (tự nhập)</option>
+    </select>
+    <input id="g-unitcustom" placeholder="Tự nhập đơn vị, vd: chương, khách hàng..." value="${UNIT_PRESETS.every(u=>u.unit!==g.unit)?escAttr(g.unit):''}" style="margin-top:6px;${UNIT_PRESETS.some(u=>u.unit===g.unit)?'display:none;':''}">
+    <div class="field-row">
+      <div><label>Xuất phát</label><input type="number" step="any" id="g-start" value="${g.startValue!=null?g.startValue:''}"></div>
+      <div><label>Đích đến</label><input type="number" step="any" id="g-target" value="${g.targetValue!=null?g.targetValue:''}"></div>
+    </div>
+    <div class="field-row">
+      <div><label>Ngày bắt đầu</label><input type="date" id="g-startdate" value="${g.startDate||today}"></div>
+      <div><label>Ngày đích</label><input type="date" id="g-targetdate" value="${g.targetDate||''}"></div>
+    </div>
+    ${isEdit?'':`<label>Chia thành mấy giai đoạn? (app sẽ dựng sườn sẵn, bạn tự sửa và bổ sung sau)</label>
+      <input type="number" id="g-phases" min="1" max="12" value="3">`}
+    <label>Ghi chú / lý do theo đuổi mục tiêu này</label><textarea id="g-note" rows="2">${esc(g.note)}</textarea>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="mCancel">Huỷ</button>
+      <button class="btn btn-primary" id="mSave">${isEdit?'Lưu':'Tạo lộ trình'}</button>
+    </div>`;
+  $('#modalBg').classList.add('show');
+  $m('#g-unitpreset').onchange=(e)=>{
+    $m('#g-unitcustom').style.display = e.target.value==='__custom' ? 'block':'none';
+  };
+  $m('#mCancel').onclick=closeModal;
+  $m('#mSave').onclick=async()=>{
+    const unitSel=$m('#g-unitpreset').value;
+    const payload={
+      title:$m('#g-title').value.trim(), area:$m('#g-area').value,
+      unit: unitSel==='__custom' ? $m('#g-unitcustom').value.trim() : unitSel,
+      startValue:Number($m('#g-start').value)||0, targetValue:Number($m('#g-target').value)||0,
+      startDate:$m('#g-startdate').value, targetDate:$m('#g-targetdate').value, note:$m('#g-note').value,
+    };
+    if(!payload.title){ toast('Đặt tên cho mục tiêu đã bạn ơi'); return; }
+    if(!payload.startDate||!payload.targetDate){ toast('Chọn ngày bắt đầu và ngày đích nhé'); return; }
+    if(payload.targetDate<=payload.startDate){ toast('Ngày đích phải sau ngày bắt đầu'); return; }
+    if(isEdit){ await updateGoal(g.id, payload); }
+    else{
+      const n=clamp(Number($m('#g-phases').value)||3, 1, 12);
+      payload.phases=buildPhaseBlueprint(payload, n);
+      await addGoal(payload);
+    }
+    closeModal(); softRefresh(); toast(isEdit?'Đã lưu mục tiêu 🎯':'Đã dựng sườn lộ trình, bạn vào chỉnh chi tiết từng giai đoạn nhé 🎯');
+  };
+}
+/* Dựng sườn: chia đều thời gian, nội suy tuyến tính kỳ vọng giữa xuất phát và đích.
+   Đây chỉ là điểm khởi đầu, người dùng chỉnh lại tên, ngày, kỳ vọng, chỉ tiêu tuần thoải mái. */
+function buildPhaseBlueprint(goal, n){
+  const names=PHASE_BLUEPRINTS[goal.area]||PHASE_BLUEPRINTS.other;
+  const start=new Date(goal.startDate+'T00:00:00');
+  const end=new Date(goal.targetDate+'T00:00:00');
+  const totalDays=Math.max(1, Math.round((end-start)/86400000));
+  const per=Math.floor(totalDays/n);
+  const phases=[];
+  for(let i=0;i<n;i++){
+    const sDate=addDays(goal.startDate, i*per);
+    const eDate= i===n-1 ? goal.targetDate : addDays(goal.startDate, (i+1)*per-1);
+    const expected = Number(goal.startValue) + (Number(goal.targetValue)-Number(goal.startValue)) * ((i+1)/n);
+    phases.push({
+      id:uid(),
+      name: names[i] || `Giai đoạn ${i+1}`,
+      focus:'',
+      startDate:sDate, endDate:eDate,
+      expectedValue: Math.round(expected*100)/100,
+      actualValue:'',
+      weeklyTarget: 10, weeklyUnit:'giờ',
+      logs:[], retro:null, status: i===0?'active':'pending',
+    });
+  }
+  return phases;
+}
+
+/* ---- Chi tiết 1 mục tiêu: timeline các phase ---- */
+function RENDER_GOAL_DETAIL(){
+  const g=goalById(state.planner.goalId);
+  if(!g){ state.planner={level:'list'}; return RENDER_GOAL_LIST(); }
+  const wrap=el('div');
+  const back=el('button','btn btn-ghost btn-sm','‹ Tất cả mục tiêu'); back.style.marginBottom='12px';
+  back.onclick=()=>{ state.planner={level:'list'}; renderAll(); };
+  wrap.appendChild(back);
+
+  const area=GOAL_AREAS.find(a=>a.id===g.area)||GOAL_AREAS[5];
+  const prog=goalProgressPct(g), timeP=goalTimePct(g);
+  const head=el('div','card');
+  head.innerHTML=`<div class="goal-area">${area.icon} ${area.label}</div>
+    <h2 style="margin:4px 0 2px;">${esc(g.title)}</h2>
+    <div class="subtle">${fmtNum(g.startValue)} → ${fmtNum(g.targetValue)} ${esc(g.unit)} · ${fmtDate(g.startDate)} đến ${fmtDate(g.targetDate)}</div>
+    ${g.note?`<div class="subtle" style="margin-top:8px;font-style:italic;">"${esc(g.note)}"</div>`:''}
+    <div class="dual-bar" style="margin-top:12px;">
+      <div class="dual-row"><span class="dual-label">Kết quả</span><div class="bar-track"><div class="bar-fill" style="width:${prog}%"></div></div><span class="bar-val">${Math.round(prog)}%</span></div>
+      <div class="dual-row"><span class="dual-label">Thời gian</span><div class="bar-track"><div class="bar-fill bar-time" style="width:${timeP}%"></div></div><span class="bar-val">${Math.round(timeP)}%</span></div>
+    </div>
+    <div class="subtle" style="margin-top:8px;">Đang ở mức <strong>${fmtNum(goalCurrentValue(g))} ${g.unit||''}</strong>
+      ${prog>=timeP?'<span class="pace-ok">· đúng hoặc vượt tiến độ</span>':'<span class="pace-slow">· chậm hơn kế hoạch, cân nhắc tăng cường độ hoặc điều chỉnh kỳ vọng</span>'}</div>`;
+  wrap.appendChild(head);
+
+  const h=el('h2','section','Các giai đoạn'); wrap.appendChild(h);
+  const addPhaseBtn=el('button','btn btn-primary btn-sm','+ Thêm giai đoạn'); addPhaseBtn.style.marginBottom='12px';
+  addPhaseBtn.onclick=()=>openPhaseModal(g, null);
+  wrap.appendChild(addPhaseBtn);
+
+  const ai=activePhaseIndex(g);
+  g.phases.forEach((p,i)=>{
+    const st=phaseStats(p);
+    const startV=phaseStartValue(g,i);
+    const est=phaseEstimate(g,i);
+    const hasActual = p.actualValue!==null&&p.actualValue!==undefined&&p.actualValue!=='';
+    const card=el('div','card phase-card'+(i===ai?' phase-active':'')+(hasActual?' phase-done':''));
+    card.innerHTML=`
+      <div class="phase-top">
+        <div>
+          <div class="phase-name">${i+1}. ${esc(p.name)} ${i===ai?'<span class="tag tag-doing">đang chạy</span>':''}</div>
+          <div class="subtle">${fmtDate(p.startDate)} → ${fmtDate(p.endDate)} · ${st.weeks.length} tuần${p.focus?' · '+esc(p.focus):''}</div>
+        </div>
+      </div>
+      <div class="tri-grid">
+        <div class="tri-cell"><div class="tri-label">Kỳ vọng</div><div class="tri-val">${fmtNum(p.expectedValue)} ${g.unit||''}</div><div class="tri-sub">từ mức ${fmtNum(startV)}</div></div>
+        <div class="tri-cell"><div class="tri-label">Ước chừng</div><div class="tri-val est">${est!==null?fmtNum(est):'—'} ${g.unit||''}</div><div class="tri-sub">theo ${Math.round(st.pct)}% nhật ký</div></div>
+        <div class="tri-cell"><div class="tri-label">Thực tế</div><div class="tri-val ${hasActual?'actual':''}">${hasActual?fmtNum(p.actualValue):'chưa nhập'} ${hasActual?(g.unit||''):''}</div><div class="tri-sub">${hasActual?'đã tổng kết':'nhập khi kết thúc'}</div></div>
+      </div>
+      <div class="bar-row" style="margin-top:10px;"><div class="bar-label">Nỗ lực</div>
+        <div class="bar-track"><div class="bar-fill" style="width:${clamp(st.pct,0,100)}%"></div></div>
+        <div class="bar-val">${Math.round(st.pct)}%</div></div>
+      <div class="subtle">${fmtNum(st.totalActual)} / ${fmtNum(st.totalTarget)} ${p.weeklyUnit||''} (chỉ tiêu ${fmtNum(p.weeklyTarget)} ${p.weeklyUnit||''}/tuần)</div>
+      ${p.retro&&p.retro.note?`<div class="retro-note">📝 Tổng kết: ${esc(p.retro.note)}</div>`:''}
+      <div class="t-actions"></div>`;
+    const actions=$('.t-actions',card);
+    const openBtn=el('button','btn btn-primary btn-sm','Mở chi tiết & ghi nhật ký');
+    openBtn.onclick=()=>{ state.planner={level:'phase', goalId:g.id, phaseId:p.id}; renderAll(); };
+    const retroBtn=el('button','btn btn-ghost btn-sm','Tổng kết giai đoạn'); retroBtn.style.marginLeft='6px';
+    retroBtn.onclick=()=>openRetroModal(g, i);
+    const editBtn=el('button','btn btn-ghost btn-sm','Sửa'); editBtn.style.marginLeft='6px';
+    editBtn.onclick=()=>openPhaseModal(g, p);
+    const delBtn=el('button','btn btn-danger btn-sm','Xoá'); delBtn.style.marginLeft='6px';
+    delBtn.onclick=()=>confirmDelete('Xoá giai đoạn này và nhật ký bên trong?', async()=>{ await deletePhase(g.id,p.id); softRefresh(); });
+    actions.append(openBtn, retroBtn, editBtn, delBtn);
+    wrap.appendChild(card);
+  });
+  if(g.phases.length===0) wrap.appendChild(el('div','empty','Chưa có giai đoạn nào, bấm "+ Thêm giai đoạn" để bắt đầu chia nhỏ mục tiêu.'));
+  return wrap;
+}
+
+function openPhaseModal(g, p){
+  const isEdit=!!p;
+  const last=g.phases[g.phases.length-1];
+  const defStart = last? addDays(last.endDate,1) : g.startDate;
+  p=p||{name:`Giai đoạn ${g.phases.length+1}`, startDate:defStart, endDate:addDays(defStart,29), expectedValue:'', weeklyTarget:10, weeklyUnit:'giờ', focus:''};
+  const body=$('#modalBody');
+  body.innerHTML=`<h2>${isEdit?'Sửa giai đoạn':'Thêm giai đoạn'} 🎯</h2>
+    <label>Tên giai đoạn</label><input id="ph-name" value="${escAttr(p.name)}" placeholder="VD: Xây nền tảng ngữ pháp, từ vựng">
+    <label>Trọng tâm giai đoạn này</label><input id="ph-focus" value="${escAttr(p.focus)}" placeholder="VD: học ngữ pháp cơ bản + 1000 từ vựng">
+    <div class="field-row">
+      <div><label>Bắt đầu</label><input type="date" id="ph-start" value="${p.startDate||''}"></div>
+      <div><label>Kết thúc</label><input type="date" id="ph-end" value="${p.endDate||''}"></div>
+    </div>
+    <label>Kỳ vọng đạt được cuối giai đoạn (${g.unit||'đơn vị'})</label>
+    <input type="number" step="any" id="ph-exp" value="${p.expectedValue!==''&&p.expectedValue!=null?p.expectedValue:''}" placeholder="VD: 5.0">
+    <div class="field-row">
+      <div><label>Chỉ tiêu mỗi tuần</label><input type="number" step="any" id="ph-wt" value="${p.weeklyTarget!=null?p.weeklyTarget:10}"></div>
+      <div><label>Đơn vị chỉ tiêu</label><input id="ph-wu" value="${escAttr(p.weeklyUnit||'giờ')}" placeholder="giờ, bài, buổi..."></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="mCancel">Huỷ</button>
+      <button class="btn btn-primary" id="mSave">${isEdit?'Lưu':'Thêm'}</button>
+    </div>`;
+  $('#modalBg').classList.add('show');
+  $m('#mCancel').onclick=closeModal;
+  $m('#mSave').onclick=async()=>{
+    const payload={ name:$m('#ph-name').value.trim(), focus:$m('#ph-focus').value,
+      startDate:$m('#ph-start').value, endDate:$m('#ph-end').value,
+      expectedValue: $m('#ph-exp').value===''?'':Number($m('#ph-exp').value),
+      weeklyTarget:Number($m('#ph-wt').value)||0, weeklyUnit:$m('#ph-wu').value.trim()||'giờ' };
+    if(!payload.name){ toast('Đặt tên giai đoạn nhé'); return; }
+    if(!payload.startDate||!payload.endDate||payload.endDate<payload.startDate){ toast('Kiểm tra lại ngày bắt đầu / kết thúc'); return; }
+    if(isEdit){ await updatePhase(g.id, p.id, payload); }
+    else{ g.phases.push(Object.assign({id:uid(), logs:[], retro:null, status:'pending', actualValue:''}, payload)); scheduleSave(); }
+    closeModal(); softRefresh(); toast('Đã lưu giai đoạn 🎯');
+  };
+}
+
+/* ---- Chi tiết 1 giai đoạn: chỉ tiêu tuần + nhật ký ngày ---- */
+function RENDER_PHASE_DETAIL(){
+  const g=goalById(state.planner.goalId);
+  const p=phaseById(g, state.planner.phaseId);
+  if(!g||!p){ state.planner={level:'list'}; return RENDER_GOAL_LIST(); }
+  const idx=g.phases.findIndex(x=>x.id===p.id);
+  const st=phaseStats(p);
+  const est=phaseEstimate(g, idx);
+  const wrap=el('div');
+
+  const back=el('button','btn btn-ghost btn-sm',`‹ ${g.title}`); back.style.marginBottom='12px';
+  back.onclick=()=>{ state.planner={level:'goal', goalId:g.id, phaseId:null}; renderAll(); };
+  wrap.appendChild(back);
+
+  const head=el('div','card');
+  head.innerHTML=`<h2 style="margin:0 0 2px;">${esc(p.name)}</h2>
+    <div class="subtle">${fmtDate(p.startDate)} → ${fmtDate(p.endDate)} · ${st.weeks.length} tuần${p.focus?' · '+esc(p.focus):''}</div>
+    <div class="tri-grid" style="margin-top:12px;">
+      <div class="tri-cell"><div class="tri-label">Kỳ vọng</div><div class="tri-val">${fmtNum(p.expectedValue)} ${g.unit||''}</div></div>
+      <div class="tri-cell"><div class="tri-label">Ước chừng</div><div class="tri-val est">${est!==null?fmtNum(est):'—'} ${g.unit||''}</div></div>
+      <div class="tri-cell"><div class="tri-label">Thực tế</div><div class="tri-val actual">${p.actualValue!==''&&p.actualValue!=null?fmtNum(p.actualValue):'chưa nhập'}</div></div>
+    </div>
+    <div class="bar-row" style="margin-top:12px;"><div class="bar-label">Nỗ lực</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${clamp(st.pct,0,100)}%"></div></div>
+      <div class="bar-val">${Math.round(st.pct)}%</div></div>
+    <div class="subtle">Đã log ${fmtNum(st.totalActual)} / ${fmtNum(st.totalTarget)} ${p.weeklyUnit||''}</div>`;
+  wrap.appendChild(head);
+
+  // Chỉ tiêu theo tuần
+  const wkCard=el('div','card'); wkCard.style.marginTop='16px';
+  wkCard.innerHTML='<h3 style="margin-top:0;">📅 Chỉ tiêu theo tuần</h3>';
+  const tbl=el('table');
+  tbl.innerHTML='<thead><tr><th>Tuần</th><th>Khoảng ngày</th><th>Chỉ tiêu</th><th>Thực tế</th><th>Hoàn thành</th></tr></thead>';
+  const tb=el('tbody');
+  st.weeks.forEach(w=>{
+    const diff=w.actual-w.target;
+    const badge = w.pct>=100 ? '<span class="wk-badge ok">đạt</span>'
+      : (w.end<todayStr()? `<span class="wk-badge miss">thiếu ${fmtNum(Math.abs(diff))}</span>` : '<span class="wk-badge pending">đang chạy</span>');
+    const tr=el('tr');
+    tr.innerHTML=`<td>Tuần ${w.index}</td><td>${fmtDate(w.start)} - ${fmtDate(w.end)}</td>
+      <td>${fmtNum(w.target)} ${p.weeklyUnit||''}</td><td>${fmtNum(w.actual)}</td>
+      <td><div style="display:flex;align-items:center;gap:8px;">
+        <div class="bar-track" style="height:10px;"><div class="bar-fill" style="width:${clamp(w.pct,0,100)}%"></div></div>
+        <span style="min-width:40px;">${Math.round(w.pct)}%</span> ${badge}</div></td>`;
+    tb.appendChild(tr);
+  });
+  if(st.weeks.length===0) tb.innerHTML='<tr><td colspan="5" class="empty">Chưa xác định được khoảng thời gian</td></tr>';
+  tbl.appendChild(tb); wkCard.appendChild(tbl);
+  const hint=el('div','subtle','Thiếu chỉ tiêu tuần này? Cứ log bù vào ngày sau, tổng nỗ lực của giai đoạn vẫn được cộng đủ.');
+  hint.style.marginTop='8px'; wkCard.appendChild(hint);
+  wrap.appendChild(wkCard);
+
+  // Nhật ký
+  const logCard=el('div','card'); logCard.style.marginTop='16px';
+  logCard.innerHTML='<h3 style="margin-top:0;">📖 Nhật ký hằng ngày</h3>';
+  const addLogBtn=el('button','btn btn-primary btn-sm','+ Ghi nhật ký hôm nay');
+  addLogBtn.onclick=()=>openLogModal(g,p);
+  logCard.appendChild(addLogBtn);
+  const logList=el('div'); logList.style.marginTop='12px';
+  const logs=[...(p.logs||[])].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  logs.forEach(l=>{
+    const row=el('div','log-row');
+    row.innerHTML=`<div><strong>${fmtDate(l.date)}</strong> · ${fmtNum(l.amount)} ${esc(p.weeklyUnit)}
+      ${l.taskId?'<span class="tag">đã tạo việc</span>':''}
+      ${l.note?`<div class="subtle">${esc(l.note)}</div>`:''}</div>`;
+    const del=el('button','btn btn-danger btn-sm','Xoá');
+    del.onclick=()=>confirmDelete('Xoá mục nhật ký này?', async()=>{ await deletePhaseLog(g.id,p.id,l.id); softRefresh(); });
+    row.appendChild(del);
+    logList.appendChild(row);
+  });
+  if(logs.length===0) logList.appendChild(el('div','empty','Chưa có nhật ký nào. Mỗi buổi học/tập bạn log lại ở đây để theo dõi nỗ lực thật.'));
+  logCard.appendChild(logList);
+  wrap.appendChild(logCard);
+
+  const retroBtn=el('button','btn btn-primary','Tổng kết giai đoạn này'); retroBtn.style.marginTop='16px';
+  retroBtn.onclick=()=>openRetroModal(g, idx);
+  wrap.appendChild(retroBtn);
+  return wrap;
+}
+
+function openLogModal(g,p){
+  const body=$('#modalBody');
+  body.innerHTML=`<h2>Ghi nhật ký 📖</h2>
+    <div class="subtle">${esc(g.title)} · ${esc(p.name)}</div>
+    <label>Ngày</label><input type="date" id="lg-date" value="${todayStr()}">
+    <label>Khối lượng đã làm (${esc(p.weeklyUnit)||'đơn vị'})</label>
+    <input type="number" step="any" id="lg-amount" placeholder="VD: 2" value="">
+    <label>Đã làm gì / ghi chú</label><textarea id="lg-note" rows="2" placeholder="VD: học 2 unit ngữ pháp, làm 1 đề reading"></textarea>
+    <label class="switch" style="margin-top:12px;"><input type="checkbox" id="lg-task" checked> Tạo luôn 1 việc đã hoàn thành trong Danh sách việc</label>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="mCancel">Huỷ</button>
+      <button class="btn btn-primary" id="mSave">Lưu nhật ký</button>
+    </div>`;
+  $('#modalBg').classList.add('show');
+  $m('#mCancel').onclick=closeModal;
+  $m('#mSave').onclick=async()=>{
+    const amount=Number($m('#lg-amount').value);
+    if(!amount || amount<=0){ toast('Nhập khối lượng đã làm (số lớn hơn 0)'); return; }
+    closeModal();
+    await addPhaseLog(g.id, p.id, {date:$m('#lg-date').value||todayStr(), amount, note:$m('#lg-note').value, createTask:$m('#lg-task').checked});
+    softRefresh(); toast('Đã ghi nhật ký 📖');
+  };
+}
+
+/* ---- Tổng kết cuối giai đoạn: đối chiếu kỳ vọng vs thực tế và gợi ý điều chỉnh ---- */
+function buildRetroSuggestion(g, idx, actual){
+  const p=g.phases[idx];
+  const exp=Number(p.expectedValue);
+  const st=phaseStats(p);
+  const startV=phaseStartValue(g, idx);
+  /* Hướng của mục tiêu: tăng dần (điểm số, doanh thu) hay giảm dần (cân nặng, thời gian chạy).
+     Với mục tiêu giảm, con số nhỏ hơn mới là tốt hơn, nên phải đảo dấu khi đánh giá.
+     Chỉ coi là mục tiêu giảm khi cả 2 mốc đều hợp lệ và đích nhỏ hơn xuất phát, còn lại
+     mặc định là tăng dần để tránh hiểu sai khi dữ liệu thiếu. */
+  const _sv=Number(g.startValue), _tv=Number(g.targetValue);
+  const direction = (Number.isFinite(_sv) && Number.isFinite(_tv) && _tv < _sv) ? -1 : 1;
+  if(!hasVal(p.expectedValue)){
+    return {verdict:'Giai đoạn này chưa đặt kỳ vọng', tone:'warn', effortPct:Math.round(st.pct),
+      advice:'Bạn chưa điền "Kỳ vọng đạt được cuối giai đoạn" nên chưa thể đối chiếu. Vào Sửa giai đoạn để bổ sung con số kỳ vọng, app sẽ tự phân tích giúp bạn.',
+      nextSuggestion:null, gap:0};
+  }
+  const rawGap = actual - exp;          // dùng để dời kỳ vọng phase sau (đúng cho cả 2 hướng)
+  const gap = rawGap * direction;       // dương = tốt hơn kỳ vọng, âm = kém hơn
+  const effortPct = Math.round(st.pct);
+  const next = g.phases[idx+1];
+  let verdict, tone, advice;
+
+  if(gap >= 0){
+    verdict = gap>0 ? `Vượt kỳ vọng ${fmtNum(Math.abs(rawGap))} ${g.unit||''} 🎉` : 'Đạt đúng kỳ vọng 👍';
+    tone='ok';
+    advice = effortPct>=100
+      ? 'Bạn vừa đạt kết quả vừa hoàn thành đủ khối lượng đề ra, kế hoạch đang rất sát sức. Cứ giữ nguyên nhịp cho giai đoạn sau.'
+      : `Đáng chú ý: bạn đạt kỳ vọng dù mới hoàn thành ${effortPct}% khối lượng đề ra, có thể chỉ tiêu tuần đang đặt cao hơn mức thật sự cần. Cân nhắc giữ nguyên hoặc tăng nhẹ mục tiêu giai đoạn sau.`;
+  } else {
+    verdict = `Chưa đạt kỳ vọng, cách ${fmtNum(Math.abs(rawGap))} ${g.unit||''}`;
+    tone='warn';
+    advice = effortPct>=90
+      ? 'Bạn đã hoàn thành gần đủ khối lượng đề ra nhưng kết quả chưa tới, nghĩa là kỳ vọng ban đầu hơi lạc quan so với thực tế. Nên hạ nhẹ kỳ vọng giai đoạn sau hoặc kéo dài thêm thời gian thay vì tự trách mình.'
+      : `Khối lượng thực tế mới đạt ${effortPct}% so với chỉ tiêu, đây nhiều khả năng là nguyên nhân chính. Cân nhắc hạ chỉ tiêu tuần xuống mức bạn duy trì được đều đặn, vì một kế hoạch làm được 100% tốt hơn một kế hoạch đẹp mà chỉ làm được một nửa.`;
+  }
+  let nextSuggestion=null;
+  if(next && gap<0){
+    const nextExp=Number(next.expectedValue);
+    if(hasVal(next.expectedValue)){
+      // Dời kỳ vọng phase sau đúng bằng khoảng hụt thô, giữ nguyên độ dốc kế hoạch.
+      // Dùng rawGap nên đúng cho cả mục tiêu tăng lẫn mục tiêu giảm.
+      const adjusted=Math.round((nextExp+rawGap)*100)/100;
+      nextSuggestion={ phaseName:next.name, from:nextExp, to:adjusted,
+        reason:`Bù khoảng hụt ${fmtNum(Math.abs(rawGap))} ${g.unit||''} của giai đoạn này để lộ trình còn lại bám sát thực tế.` };
+    }
+    /* Gợi ý chỉ tiêu tuần dựa trên NHỊP THẬT đã duy trì được (trung bình các tuần đã
+       trôi qua), chứ không dựa trên % tổng, để tránh đề xuất vô lý kiểu "10 giờ → 0.4 giờ"
+       khi giai đoạn mới bắt đầu. Chỉ gợi ý khi đã có ít nhất 2 tuần dữ liệu thật. */
+    const avg=st.avgWeeklyActual;
+    if(next.weeklyTarget && st.elapsedWeeks>=2 && avg!==null && avg>0){
+      const curTarget=Number(next.weeklyTarget);
+      const realistic=Math.max(1, Math.round(avg*10)/10);
+      if(realistic < curTarget*0.95){
+        nextSuggestion = nextSuggestion || {phaseName:next.name};
+        nextSuggestion.weeklyFrom=curTarget;
+        nextSuggestion.weeklyTo=realistic;
+        nextSuggestion.weeklyReason=`Thực tế bạn duy trì được trung bình ${fmtNum(avg)} ${p.weeklyUnit||''}/tuần trong ${st.elapsedWeeks} tuần vừa qua.`;
+      }
+    }
+  } else if(next && gap>0){
+    nextSuggestion={ phaseName:next.name, keep:true,
+      reason:'Bạn đang đi nhanh hơn kế hoạch, cứ giữ nguyên mục tiêu giai đoạn sau và duy trì nhịp hiện tại.' };
+  }
+  return {verdict, tone, advice, effortPct, nextSuggestion, gap};
+}
+
+function openRetroModal(g, idx){
+  const p=g.phases[idx];
+  const st=phaseStats(p);
+  const est=phaseEstimate(g, idx);
+  const body=$('#modalBody');
+  body.innerHTML=`<h2>Tổng kết giai đoạn 🔍</h2>
+    <div class="subtle">${esc(g.title)} · ${esc(p.name)}</div>
+    <div class="tri-grid" style="margin-top:12px;">
+      <div class="tri-cell"><div class="tri-label">Kỳ vọng</div><div class="tri-val">${fmtNum(p.expectedValue)} ${g.unit||''}</div></div>
+      <div class="tri-cell"><div class="tri-label">Ước chừng</div><div class="tri-val est">${est!==null?fmtNum(est):'—'}</div></div>
+      <div class="tri-cell"><div class="tri-label">Nỗ lực</div><div class="tri-val">${Math.round(st.pct)}%</div></div>
+    </div>
+    <label>Kết quả thực tế bạn đo được (${g.unit||'đơn vị'})</label>
+    <input type="number" step="any" id="rt-actual" value="${p.actualValue!==''&&p.actualValue!=null?p.actualValue:''}" placeholder="VD: điểm thi thử thật, cân nặng thật...">
+    <div id="rt-analysis"></div>
+    <label>Ghi chú tổng kết (điều gì hiệu quả, điều gì cần đổi?)</label>
+    <textarea id="rt-note" rows="3">${p.retro&&p.retro.note?esc(p.retro.note):''}</textarea>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="mCancel">Huỷ</button>
+      <button class="btn btn-primary" id="mSave">Lưu tổng kết</button>
+    </div>`;
+  $('#modalBg').classList.add('show');
+
+  let currentSuggestion=null;
+  function refreshAnalysis(){
+    const v=$m('#rt-actual').value;
+    const box=$m('#rt-analysis');
+    if(v===''){ box.innerHTML=''; currentSuggestion=null; return; }
+    const s=buildRetroSuggestion(g, idx, Number(v));
+    currentSuggestion=s;
+    let sugHtml='';
+    if(s.nextSuggestion){
+      const ns=s.nextSuggestion;
+      if(ns.keep){
+        sugHtml=`<div class="sug-box ok"><strong>Gợi ý cho "${esc(ns.phaseName)}":</strong> ${esc(ns.reason)}</div>`;
+      } else {
+        const parts=[];
+        if(ns.to!==undefined) parts.push(`kỳ vọng ${fmtNum(ns.from)} → <strong>${fmtNum(ns.to)}</strong> ${g.unit||''}`);
+        if(ns.weeklyTo!==undefined) parts.push(`chỉ tiêu tuần ${fmtNum(ns.weeklyFrom)} → <strong>${fmtNum(ns.weeklyTo)}</strong>`);
+        sugHtml=`<div class="sug-box warn"><strong>Gợi ý điều chỉnh "${esc(ns.phaseName)}":</strong> ${parts.join(', ')}.
+          <div class="subtle" style="margin-top:4px;">${esc(ns.reason)} ${esc(ns.weeklyReason)}</div>
+          <button class="btn btn-ghost btn-sm" id="rt-apply" style="margin-top:8px;">Áp dụng gợi ý này</button></div>`;
+      }
+    }
+    box.innerHTML=`<div class="retro-verdict ${s.tone}">${s.verdict}</div>
+      <div class="subtle" style="margin-top:6px;">${s.advice}</div>${sugHtml}`;
+    const applyBtn=$m('#rt-apply');
+    if(applyBtn) applyBtn.onclick=async()=>{
+      const next=g.phases[idx+1]; const ns=s.nextSuggestion;
+      const patch={};
+      if(ns.to!==undefined) patch.expectedValue=ns.to;
+      if(ns.weeklyTo!==undefined) patch.weeklyTarget=ns.weeklyTo;
+      await updatePhase(g.id, next.id, patch);
+      toast('Đã áp dụng gợi ý cho giai đoạn sau ✅');
+      applyBtn.disabled=true; applyBtn.textContent='Đã áp dụng ✓';
+    };
+  }
+  $m('#rt-actual').addEventListener('input', refreshAnalysis);
+  refreshAnalysis();
+
+  $m('#mCancel').onclick=closeModal;
+  $m('#mSave').onclick=async()=>{
+    const v=$m('#rt-actual').value;
+    await updatePhase(g.id, p.id, {
+      actualValue: v===''?'':Number(v),
+      retro:{note:$m('#rt-note').value, decidedAt:new Date().toISOString()},
+      status: v===''?p.status:'done',
+    });
+    closeModal(); softRefresh(); toast('Đã lưu tổng kết giai đoạn 🔍');
+  };
+}
+
+/* ======================= STATS ======================= */
+function RENDER_STATS(){
+  const wrap=el('div');
+  const total=state.tasks.length; const done=state.tasks.filter(t=>t.status==='done').length;
+  const pct= total? Math.round(done/total*100):0;
+  const top=el('div','card');
+  top.innerHTML=`<h3 style="margin-top:0;">Tỉ lệ hoàn thành chung</h3>
+    <div class="bar-row"><div class="bar-label">${pct}%</div><div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div><div class="bar-val">${done}/${total}</div></div>`;
+  wrap.appendChild(top);
+
+  const byQ=el('div','card'); byQ.style.marginTop='16px';
+  byQ.innerHTML='<h3 style="margin-top:0;">Theo mức ưu tiên</h3>';
+  [1,2,3,4].forEach(q=>{
+    const arr=state.tasks.filter(t=>t.quadrant===q);
+    const d=arr.filter(t=>t.status==='done').length;
+    const p= arr.length? Math.round(d/arr.length*100):0;
+    const row=el('div','bar-row');
+    row.innerHTML=`<div class="bar-label">${QUADRANTS[q].icon}</div><div class="bar-track"><div class="bar-fill" style="width:${p}%"></div></div><div class="bar-val">${d}/${arr.length}</div>`;
+    byQ.appendChild(row);
+  });
+  wrap.appendChild(byQ);
+
+  const week=el('div','card'); week.style.marginTop='16px';
+  week.innerHTML='<h3 style="margin-top:0;">Hoàn thành 7 ngày gần đây</h3>';
+  const days=[]; const now=new Date();
+  for(let i=6;i>=0;i--){ const d=new Date(now); d.setDate(now.getDate()-i); days.push(ymd(d)); }
+  const max=Math.max(1,...days.map(ds=>state.tasks.filter(t=>t.completedAt&&t.completedAt.slice(0,10)===ds).length));
+  days.forEach(ds=>{
+    const c=state.tasks.filter(t=>t.completedAt&&t.completedAt.slice(0,10)===ds).length;
+    const p=Math.round(c/max*100);
+    const dow=new Date(ds+'T00:00:00').toLocaleDateString('vi-VN',{weekday:'short'});
+    const row=el('div','bar-row');
+    row.innerHTML=`<div class="bar-label">${dow}</div><div class="bar-track"><div class="bar-fill" style="width:${p}%"></div></div><div class="bar-val">${c}</div>`;
+    week.appendChild(row);
+  });
+  wrap.appendChild(week);
+  return wrap;
+}
+
+/* ======================= SETTINGS ======================= */
+function RENDER_SETTINGS(){
+  const wrap=el('div');
+
+  const acctCard=el('div','card');
+  acctCard.innerHTML=`<h3 style="margin-top:0;">🔗 Tài khoản Google</h3>
+    <div class="profile-chip">
+      ${state.google.picture?`<img src="${escAttr(state.google.picture)}" referrerpolicy="no-referrer">`:''}
+      <div><strong>${esc(state.google.name)||'Đã đăng nhập'}</strong><br><span class="subtle">${esc(state.google.email)}</span></div>
+    </div>
+    <p class="subtle" style="margin-top:10px;">Dữ liệu của bạn lưu trong 1 file ẩn thuộc Google Drive của chính tài khoản
+    này (không hiện trong Drive thường), và các ngày đặc biệt / việc bật đồng bộ sẽ tạo nhắc hẹn thật trên
+    Google Calendar chính của bạn.</p>`;
+  wrap.appendChild(acctCard);
+
+  const profCard=el('div','card'); profCard.style.marginTop='16px';
+  const pr=state.profile;
+  profCard.innerHTML=`<h3 style="margin-top:0;">👤 Hồ sơ hiển thị trong app</h3>
+    <label>Tên hiển thị</label><input id="pf-name" value="${escAttr(pr.name)}">
+    <label>Ngày sinh (để app tự nhắc bạn)</label><input type="date" id="pf-bday" value="${pr.birthday||''}">
+    <label>Icon đại diện</label>
+    <div class="avatar-pick" id="pf-avatars">${AVATARS.map(a=>`<button data-a="${a}" class="${pr.avatarEmoji===a?'sel':''}">${a}</button>`).join('')}</div>
+    <div class="modal-actions" style="justify-content:flex-start;margin-top:14px;">
+      <button class="btn btn-primary" id="pf-save">Lưu hồ sơ</button>
+    </div>`;
+  wrap.appendChild(profCard);
+
+  const notifCard=el('div','card'); notifCard.style.marginTop='16px';
+  notifCard.innerHTML=`<h3 style="margin-top:0;">🔔 Thông báo & giao diện</h3>
+    <label class="switch"><input type="checkbox" id="s-notif" ${pr.notificationsEnabled!==false&&pr.notificationsEnabled!=='false'?'checked':''}> Bật nhắc việc bằng thông báo trình duyệt (khi mở app)</label>
+    <p class="subtle" style="margin-top:8px;">Để chắc chắn được nhắc kể cả khi không mở app (sinh nhật, việc quan trọng),
+    hãy bật "Đồng bộ Google Calendar" khi thêm việc/ngày đặc biệt, Calendar sẽ tự thông báo trên điện thoại của bạn.</p>
+    <button class="btn btn-ghost" id="s-reqnotif" style="margin-top:8px;">Cấp quyền thông báo trình duyệt</button>
+    <label class="switch" style="margin-top:16px;"><input type="checkbox" id="s-dark" ${state.theme==='dark'?'checked':''}> Chế độ tối</label>`;
+  wrap.appendChild(notifCard);
+
+  setTimeout(()=>{
+    $$('#pf-avatars button').forEach(b=>b.onclick=()=>{ $$('#pf-avatars button').forEach(x=>x.classList.remove('sel')); b.classList.add('sel'); });
+    $('#pf-save').onclick=async()=>{
+      const sel=$('#pf-avatars .sel');
+      const payload={ name:$('#pf-name').value, birthday:$('#pf-bday').value, avatarEmoji: sel?sel.dataset.a:'🍊' };
+      await updateProfile(payload); softRefresh(); toast('Đã lưu hồ sơ 🍊');
+    };
+    $('#s-notif').onchange=async(e)=>{ await updateProfile({notificationsEnabled:e.target.checked}); };
+    $('#s-reqnotif').onclick=()=>{ if('Notification' in window) Notification.requestPermission().then(p=>toast(p==='granted'?'Đã bật thông báo 🔔':'Bạn đã từ chối quyền thông báo')); else toast('Trình duyệt không hỗ trợ thông báo'); };
+    $('#s-dark').onchange=async(e)=>{ state.theme = e.target.checked?'dark':'light'; await updateProfile({theme:state.theme}); softRefresh(); };
+  });
+  return wrap;
+}
+
+/* ======================= REMINDERS (thông báo trong lúc mở app) ======================= */
+function checkReminders(){
+  if(!('Notification' in window) || Notification.permission!=='granted') return;
+  if(state.profile.notificationsEnabled===false||state.profile.notificationsEnabled==='false') return;
+  const today=todayStr();
+  state.tasks.filter(t=>t.status!=='done' && t.dueDate && t.dueDate<=today).forEach(t=>{
+    const key='task-'+t.id+'-'+today;
+    if(!state.notified.has(key)){
+      state.notified.add(key);
+      try{ new Notification('🍊 Việc đến hạn: '+t.title, {body: t.dueDate<today?'Đã quá hạn!':'Hôm nay là hạn chót'}); }catch(e){}
+    }
+  });
+  upcomingSpecialDates(0).forEach(p=>{
+    const key='p-'+p.name+'-'+today;
+    if(!state.notified.has(key)){ state.notified.add(key); try{ new Notification('🎂 Hôm nay: '+p.name, {body:'Đừng quên nhé!'}); }catch(e){} }
+  });
+}
+
+/* ======================= RENDER MAP & INIT ======================= */
+const RENDERERS = { home:RENDER_HOME, planner:RENDER_PLANNER, matrix:RENDER_MATRIX, calendar:RENDER_CALENDAR,
+  list:RENDER_LIST, people:RENDER_PEOPLE, notes:RENDER_NOTES, stats:RENDER_STATS, settings:RENDER_SETTINGS };
+
+$('#themeToggle').onclick=async()=>{
+  state.theme = state.theme==='light'?'dark':'light';
+  document.body.setAttribute('data-theme', state.theme);
+  $('#themeToggle').textContent = state.theme==='light'?'🌙':'☀️';
+  if(state.dataLoaded) await updateProfile({theme:state.theme});
+  softRefresh();
+};
+$('#signOutBtn').onclick=signOut;
+
+/* Hiệu ứng gợn sóng trên mọi nút, gắn 1 lần ở cấp document nên nút tạo mới về sau
+   vẫn có hiệu ứng mà không cần gắn lại. */
+document.addEventListener('pointerdown', (e)=>{
+  const b=e.target.closest('.btn');
+  if(!b) return;
+  const r=b.getBoundingClientRect();
+  b.style.setProperty('--rx', (e.clientX-r.left)+'px');
+  b.style.setProperty('--ry', (e.clientY-r.top)+'px');
+  b.classList.remove('rippling');
+  void b.offsetWidth;
+  b.classList.add('rippling');
+  setTimeout(()=>b.classList.remove('rippling'), 600);
+});
+/* Đóng hộp thoại bằng phím Esc cho nhanh tay */
+document.addEventListener('keydown', (e)=>{
+  if(e.key==='Escape' && $('#modalBg').classList.contains('show')) closeModal();
+});
+/* Nếu người dùng đóng tab ngay sau khi vừa sửa, ép lưu luôn thay vì chờ hết 500ms */
+window.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState==='hidden' && state.saving && state.dataLoaded){
+    clearTimeout(saveTimer); saveToDrive();
+  }
+});
+window.addEventListener('beforeunload', (e)=>{
+  if(state.saving && state.dataLoaded){
+    clearTimeout(saveTimer); saveToDrive();
+    e.preventDefault(); e.returnValue='';
+  }
+});
+
+initAuth();
+</script>
+</body>
+</html>
