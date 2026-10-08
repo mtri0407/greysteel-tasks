@@ -56,6 +56,13 @@ function assert(cond, msg) { if (!cond) throw new Error('ASSERT FAILED: ' + msg)
   });
   await page.screenshot({ path: 'p_home.png' });
 
+  await step('REGRESSION: người dùng mới (chưa có file Drive) có đủ mọi mảng dữ liệu, đồng hồ học chạy được', async () => {
+    const missing = await page.evaluate(() => GSData.ARRAY_KEYS.filter(k => !Array.isArray(state[k])));
+    assert(missing.length === 0, 'thiếu mảng: ' + missing.join(','));
+    await page.evaluate(() => { state.settings.focusRun = GSEngine.focus.start(new Date(Date.now() - 30 * 60000).toISOString(), {}, smartCtx()); stopFocus(); });
+    assert(await page.evaluate(() => state.focusSessions.length === 1 && state.focusSessions[0].minutes === 30), 'lưu được phiên học 30 phút');
+  });
+
   // === 3. Tải lại trang: KHÔNG được bắt đăng nhập lại (điểm mấu chốt user phàn nàn) ===
   await page.reload();
   await page.waitForTimeout(1200);

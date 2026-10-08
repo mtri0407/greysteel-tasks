@@ -66,6 +66,8 @@ const AI_TOOLS = {
       checkin_due: due.length, blocks_unknown: stale,
       pending_conflicts: pendingDisruptions().map(d => ({ title: d.title, start: d.fixedStart ? aiLocal(d.fixedStart) : '' })),
       templates: state.blockTemplates.filter(t => !t.deletedAt).length, blocks_this_week: blocksOfWeek(wk).length,
+      study_time: { today_minutes: GSEngine.focus.daily(focusAllSessions(), smartCtx())[todayStr()] || 0, streak_days: GSEngine.focus.streak(state.focusSessions, nowIso(), smartCtx()),
+        timer_running: !!state.settings.focusRun, morning_brief: state.settings.morningBrief !== false ? (state.settings.morningBriefTime || '06:00') : 'tắt', block_reminders: state.settings.blockReminders !== false },
       setup_checklist: smartChecklist().map(x => ({ step: x.label, done: x.done })),
       sleep_rules: (state.settings.sleepRules || []).map(r => ({ nights_before: (r.wakeWeekdays || []).map(w => WEEKDAYS[w]), sleep: r.start, wake: r.end })),
       settings: { push_blocks_to_google: state.settings.syncBlocksToCalendar !== false, read_google_calendar: state.settings.readCalendar !== false,
@@ -83,7 +85,7 @@ const AI_TOOLS = {
   },
   get_week_budget({ week_start } = {}) {
     const wk = week_start && /^\d{4}-\d{2}-\d{2}$/.test(week_start) ? GSEngine.time.weekStartYmd(GSEngine.time.localToMs(week_start, '12:00', tzOff()), tzOff()) : currentWeekYmd();
-    const wb = GSEngine.weekBudget(state.blocks, activeGoals(), state.checkins, wk, nowIso(), smartCtx());
+    const wb = GSEngine.weekBudget(state.blocks, activeGoals(), state.checkins, wk, nowIso(), smartCtx(), focusAllSessions());
     const ids = new Set(blocksOfWeek(wk).map(b => b.id));
     const st = GSEngine.weekStats(state.blocks, state.checkins.filter(c => ids.has(c.blockId)), smartCtx());
     return { week_start: wk, goals: wb.map(x => ({ goal: x.title, rank: x.rawRank || null, target_hours: x.targetMin != null ? aiH(x.targetMin) : null,

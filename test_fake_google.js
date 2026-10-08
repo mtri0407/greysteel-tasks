@@ -101,7 +101,8 @@ function createFakeGoogle() {
     /* Sự kiện người dùng tự tạo / được mời trên Google */
     addExternal: (summary, start, end, extra) => calInsert(Object.assign({ summary, start: { dateTime: start }, end: { dateTime: end } }, extra || {})),
     moveEvent: (id, start, end) => { const e = cal.events.get(id); e.start = { dateTime: start }; e.end = { dateTime: end }; return calTouch(e); },
-    appEvents: () => [...cal.events.values()].filter(e => e.status !== 'cancelled' && e.extendedProperties && e.extendedProperties.private && e.extendedProperties.private.gsApp === 'greysteel'),
+    appEvents: () => [...cal.events.values()].filter(e => e.status !== 'cancelled' && e.extendedProperties && e.extendedProperties.private && e.extendedProperties.private.gsBlockId),
+    briefEvents: () => [...cal.events.values()].filter(e => e.status !== 'cancelled' && e.extendedProperties && e.extendedProperties.private && e.extendedProperties.private.gsBrief),
   };
 }
 

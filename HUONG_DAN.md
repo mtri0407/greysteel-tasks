@@ -170,13 +170,13 @@ Trước khi triển khai bản chỉnh sửa, có thể chạy lại toàn bộ
 
 ```
 node test_logic.js                    # 20 test cho phần tính toán lộ trình
-node test_engine.js                   # 33 test engine lịch thông minh (6 kịch bản nghiệm thu, luật cứng, xếp bù)
+node test_engine.js                   # 44 test engine (6 kịch bản nghiệm thu, luật cứng, xếp bù, khung lớn, đồng hồ học)
 node test_data.js                     # 15 test migrate, gộp hai thiết bị, changelog
-node test_calsync.js                  # 12 test đồng bộ Google Calendar
+node test_calsync.js                  # 15 test đồng bộ Google Calendar (nhắc hẹn, bản tin buổi sáng)
 node test_assistant.js                # 9 test Netlify Function trợ lý AI (Claude giả, không tốn tiền)
 node netlify/functions/_test.js       # 15 test cho phần đăng nhập
-node test_full.js                     # 23 test giao diện thật bằng trình duyệt
-node test_smart.js                    # 30 test giao diện lịch thông minh, hướng dẫn sử dụng và trợ lý AI
+node test_full.js                     # 24 test giao diện thật bằng trình duyệt
+node test_smart.js                    # 41 test giao diện lịch thông minh, hướng dẫn, trợ lý AI, đồng hồ học, thông báo
 ```
 
 Hai test trình duyệt cần Playwright và dùng Google API giả lập trong `test_fake_google.js` (không gọi Google thật). Nếu Playwright được cài ở thư mục khác (ví dụ `C:\Users\Admin\node_modules`), chạy kèm `NODE_PATH`:

@@ -22,7 +22,8 @@ function t(name, fn) {
 }
 
 const seed = E.founderSeed();
-const ctx = { sleepRules: seed.sleepRules, tzOffsetMin: 420 };
+// Kịch bản nghiệm thu của spec dùng lịch mẫu chia block 50 phút ("Học sâu, 4 block")
+const ctx = { sleepRules: seed.sleepRules, tzOffsetMin: 420, config: { splitTemplates: true } };
 const NOW = '2026-10-05T07:00:00+07:00';      // sáng thứ 2 đầu tuần
 const WEEK = '2026-10-05';
 const base = E.generateWeekBlocks(seed.templates, WEEK, [], NOW, ctx);
@@ -258,6 +259,136 @@ t('Xếp bù: hết chỗ trong tuần thì báo số phút không xếp đượ
   assert.strictEqual(mk.unplacedMin, mk.missedMin);
 });
 
+/* ======================= Khung lớn không cắt (mặc định) ======================= */
+const ctxLong = { sleepRules: seed.sleepRules, tzOffsetMin: 420 };
+const longBase = E.generateWeekBlocks(seed.templates, WEEK, [], NOW, ctxLong);
+t('Mặc định giữ khung lớn: "Học sâu" thứ 6 08:00 đến 12:00 là một block 4 tiếng', () => {
+  const fri = longBase.filter(b => b.templateId === 't6-hocsau');
+  assert.strictEqual(fri.length, 1);
+  assert.strictEqual(fri[0].start, '2026-10-09T08:00:00+07:00');
+  assert.strictEqual(fri[0].end, '2026-10-09T12:00:00+07:00');
+  assert.strictEqual(fri[0].label, 'Học sâu');
+  assert.strictEqual(longBase.length, 27, 'mỗi dòng lịch khung một block');
+});
+t('Việc chen vào giữa block dài: chỉ dời phần bị chiếm, phần trước và sau giữ nguyên', () => {
+  const d = { id: 'g1', title: 'Việc gấp', durationMin: 120, priority: 1, mode: 'fixed_time', fixedStart: '2026-10-09T09:00:00+07:00' };
+  const p = E.propose(longBase, goals, d, NOW, ctxLong);
+  assert.ok(p.ok);
+  assert.strictEqual(p.moved.length + p.lost.length, 1);
+  const id = 'tpl-t6-hocsau-2026-10-09-1';
+  const m = p.moved[0];
+  assert.ok(m && m.partial, 'là dời một phần');
+  eq(m.from, { start: '2026-10-09T09:00:00+07:00', end: '2026-10-09T11:00:00+07:00' });
+  eq(m.keep, [{ start: '2026-10-09T08:00:00+07:00', end: '2026-10-09T09:00:00+07:00' }, { start: '2026-10-09T11:00:00+07:00', end: '2026-10-09T12:00:00+07:00' }]);
+  assert.strictEqual(P(m.to.end) - P(m.to.start), 120 * 60000, 'phần dời đúng 2 tiếng');
+  const r = E.applyProposal(longBase, p, d, NOW, ctxLong);
+  const orig = byId(r.blocks, id), rest = byId(r.blocks, id + '-r-g1'), piece = byId(r.blocks, id + '-m-g1');
+  assert.strictEqual(orig.end, '2026-10-09T09:00:00+07:00', 'giữ 08:00 đến 09:00');
+  assert.strictEqual(rest.start, '2026-10-09T11:00:00+07:00', 'phần sau 11:00 đến 12:00 thành block riêng');
+  assert.strictEqual(piece.start, m.to.start, 'phần bị chiếm sang chỗ mới');
+  [orig, rest, piece].forEach(b => assert.strictEqual(b.goalId, 'goal-gpa'));
+  const placed = r.blocks.find(b => b.id === E.placementBlockId(d));
+  [orig, rest, piece].forEach(b => assert.ok(!overlaps(b, placed), 'không còn chồng việc mới'));
+  assert.strictEqual(gpa(p.budget_after).plannedMin, gpa(p.budget_before).plannedMin, 'dời đủ thì GPA không hụt');
+});
+t('Việc chen vào block dài mà hết chỗ: chỉ mất phần bị chiếm, giữ phần còn lại', () => {
+  const day = '2026-10-20';
+  const blocks = [
+    { id: 'long', type: 'flexible', goalId: 'goal-clb', start: `${day}T08:00:00+07:00`, end: `${day}T12:00:00+07:00`, status: 'planned' },
+    { id: 'wall', type: 'fixed', start: `${day}T12:00:00+07:00`, end: `${day}T23:00:00+07:00`, status: 'planned' },
+    { id: 'wall2', type: 'fixed', start: `${day}T05:00:00+07:00`, end: `${day}T08:00:00+07:00`, status: 'planned' },
+  ];
+  const d = { id: 'z', priority: 3, durationMin: 60, mode: 'fixed_time', fixedStart: `${day}T10:00:00+07:00` };
+  const p = E.propose(blocks, goals, d, '2026-10-19T07:00:00+07:00', ctxLong);
+  assert.strictEqual(p.moved.length, 0);
+  assert.strictEqual(p.lost.length, 1);
+  assert.strictEqual(p.lostMinByGoal['goal-clb'], 60, 'chỉ mất 60 phút bị chiếm, không mất cả 4 tiếng');
+  const r = E.applyProposal(blocks, p, d, '2026-10-19T07:00:00+07:00', ctxLong);
+  assert.strictEqual(byId(r.blocks, 'long').end, `${day}T10:00:00+07:00`);
+  assert.strictEqual(byId(r.blocks, 'long-r-z').start, `${day}T11:00:00+07:00`);
+  assert.ok(E.isActive(byId(r.blocks, 'long')), 'block gốc vẫn hiệu lực');
+});
+
+t('Khung lớn (quét toàn tuần): sau khi áp dụng, không block nào chồng nhau, không vào giờ ngủ, không vượt hạn', () => {
+  let checked = 0;
+  for (let day = 0; day < 7; day++) {
+    const ymd = E.time.addDaysYmd(WEEK, day);
+    for (let h = 6; h <= 21; h++) for (const pr of [1, 2, 3, 5]) {
+      const d = { id: `L${day}${h}${pr}`, durationMin: 75, priority: pr, mode: 'fixed_time', fixedStart: `${ymd}T${String(h).padStart(2, '0')}:30:00+07:00` };
+      const p = E.propose(longBase, goals, d, NOW, ctxLong);
+      if (!p.ok) continue;
+      const applied = E.applyProposal(longBase, p, d, NOW, ctxLong).blocks.filter(b => E.isActive(b) && b.type !== 'buffer');
+      for (let i = 0; i < applied.length; i++) for (let j = i + 1; j < applied.length; j++) {
+        const a = applied[i], b = applied[j];
+        if (a.type === 'fixed' && b.type === 'fixed') continue; // lịch gốc có sẵn các block cố định giáp nhau
+        assert.ok(!overlaps(a, b), `chồng nhau sau khi áp dụng: ${a.id} và ${b.id}`);
+      }
+      p.moved.forEach(m => { assert.ok(!inSleep(m.to), 'vào giờ ngủ'); assert.ok(P(m.to.end) - P(m.to.start) === P(m.from.end) - P(m.from.start), 'giữ đúng độ dài phần dời'); });
+      checked++;
+    }
+  }
+  assert.ok(checked > 100, 'đã kiểm ' + checked);
+});
+
+/* ======================= Đồng hồ Flowtime ======================= */
+const F = E.focus;
+const at = (hm, day) => `${day || '2026-10-08'}T${hm}:00+07:00`;
+t('Flowtime: đếm lên, tới 50 phút mới hỏi nghỉ; học tiếp thì 25 phút sau hỏi lại', () => {
+  let run = F.start(at('08:00'), { goalId: 'goal-gpa' }, ctxLong);
+  assert.strictEqual(F.shouldPrompt(run, at('08:49'), ctxLong), false);
+  assert.strictEqual(F.shouldPrompt(run, at('08:50'), ctxLong), true);
+  run = F.continue(run, at('08:50'), ctxLong);
+  assert.strictEqual(F.shouldPrompt(run, at('09:14'), ctxLong), false);
+  assert.strictEqual(F.shouldPrompt(run, at('09:15'), ctxLong), true);
+  assert.strictEqual(Math.round(F.minutes(run, at('09:15'), ctxLong)), 75);
+});
+t('Flowtime: nghỉ khoảng 1/5 thời gian vừa học (5 tới 20 phút), giữ ghi chú quay lại, nghỉ không tính vào phút học', () => {
+  assert.strictEqual(F.suggestBreakMin(20), 5);
+  assert.strictEqual(F.suggestBreakMin(50), 10);
+  assert.strictEqual(F.suggestBreakMin(90), 18);
+  assert.strictEqual(F.suggestBreakMin(200), 20);
+  let run = F.start(at('08:00'), { goalId: 'goal-gpa' }, ctxLong);
+  run = F.pause(run, at('09:30'), 'làm tiếp câu 13b', ctxLong);
+  assert.strictEqual(run.phase, 'break'); assert.strictEqual(run.breakMin, 18);
+  assert.strictEqual(run.breakEnd, at('09:48')); assert.strictEqual(run.note, 'làm tiếp câu 13b');
+  assert.strictEqual(Math.round(F.minutes(run, at('09:45'), ctxLong)), 90, 'đang nghỉ thì không cộng');
+  run = F.resume(run, at('09:50'), ctxLong);
+  assert.strictEqual(F.shouldPrompt(run, at('10:39'), ctxLong), false, 'sau nghỉ, 50 phút nữa mới hỏi');
+  assert.strictEqual(F.shouldPrompt(run, at('10:40'), ctxLong), true);
+  const sess = F.stop(run, at('11:00'), ctxLong);
+  assert.strictEqual(sess.minutes, 160);
+  assert.strictEqual(sess.segments.length, 2);
+  assert.strictEqual(sess.breaks, 1);
+});
+t('Ngân sách tuần cộng phút học thật, không tính trùng với block đã check-in', () => {
+  const now = at('20:00');
+  const ses1 = F.stop(F.start(at('19:00', '2026-10-06'), { goalId: 'goal-gpa' }, ctxLong), at('19:40', '2026-10-06'), ctxLong); // ngoài block
+  const blk = byId(longBase, 'tpl-t4-gtton-2026-10-07-1'); // 13:30 đến 15:00 thứ 4
+  const ses2 = F.stop(F.start(at('13:30', '2026-10-07'), { goalId: 'goal-gpa' }, ctxLong), at('14:30', '2026-10-07'), ctxLong); // 60 phút trong block
+  const base0 = gpa(E.weekBudget(longBase, goals, [], WEEK, now, ctxLong, []));
+  const b1 = gpa(E.weekBudget(longBase, goals, [], WEEK, now, ctxLong, [ses1, ses2]));
+  assert.strictEqual(b1.doneMin, 100, '40 + 60 phút học thật');
+  assert.strictEqual(b1.focusMin, 100);
+  assert.strictEqual(base0.unknownMin - b1.unknownMin, 60, 'phần đã học trong block chưa check-in không còn tính là chưa rõ');
+  const ck = { blockId: blk.id, result: 'partial', completedRatio: 60 / 90 };
+  const b2 = gpa(E.weekBudget(longBase, goals, [ck], WEEK, now, ctxLong, [ses1, ses2]));
+  assert.strictEqual(b2.doneMin, 100, 'block đã check-in 60 phút thì đồng hồ không cộng lần nữa: ' + b2.doneMin);
+});
+t('Gợi ý check-in theo đồng hồ và chuỗi ngày học', () => {
+  const blk = byId(longBase, 'tpl-t4-gtton-2026-10-07-1'); // 90 phút
+  const ses = F.stop(F.start(at('13:30', '2026-10-07'), { goalId: 'goal-gpa' }, ctxLong), at('14:30', '2026-10-07'), ctxLong);
+  eq(F.checkinFromFocus(blk, [ses], ctxLong), { minutes: 60, ratio: 0.67, result: 'partial' });
+  const full = F.stop(F.start(at('13:30', '2026-10-07'), { goalId: 'goal-gpa' }, ctxLong), at('15:00', '2026-10-07'), ctxLong);
+  assert.strictEqual(F.checkinFromFocus(blk, [full], ctxLong).result, 'done');
+  assert.strictEqual(F.checkinFromFocus(blk, [], ctxLong), null);
+  const days = ['2026-10-05', '2026-10-06', '2026-10-07'].map(dd => F.stop(F.start(at('08:00', dd), { goalId: 'goal-gpa' }, ctxLong), at('08:30', dd), ctxLong));
+  assert.strictEqual(F.streak(days, at('09:00', '2026-10-07'), ctxLong), 3);
+  assert.strictEqual(F.streak(days, at('07:00', '2026-10-08'), ctxLong), 3, 'hôm nay chưa học thì vẫn giữ chuỗi tới hôm qua');
+  assert.strictEqual(F.streak(days, at('07:00', '2026-10-09'), ctxLong), 0, 'bỏ một ngày là đứt chuỗi');
+  const short = [F.stop(F.start(at('08:00'), {}, ctxLong), at('08:10'), ctxLong)];
+  assert.strictEqual(F.streak(short, at('09:00'), ctxLong), 0, 'dưới 25 phút không tính');
+});
+
 /* ======================= Dán lịch nhanh ======================= */
 t('Dán lịch nhanh: đọc đúng nhiều kiểu viết giờ', () => {
   const r = E.parseQuickSchedule([
@@ -378,7 +509,7 @@ t('Luật cứng (quét toàn tuần): mọi phương án không vào giờ ng�
             const applied = E.applyProposal(base, p, d, NOW, ctx).blocks;
             p.moved.forEach(m => {
               assert.ok(!inSleep(m.to), 'block bị dời vào giờ ngủ');
-              applied.filter(b => b.id !== m.blockId && b.type !== 'buffer' && E.isActive(b)).forEach(b =>
+              applied.filter(b => b.id !== m.blockId && b.id !== m.blockId + '-m-' + d.id && b.type !== 'buffer' && E.isActive(b)).forEach(b =>
                 assert.ok(!overlaps(m.to, b), `block dời ${m.blockId} chồng lên ${b.id}`));
               assert.ok(P(m.to.end) <= (m.block.deadline ? P(m.block.deadline) : E.time.endOfLocalDay(P(m.from.start), 420)), 'dời quá hạn');
             });

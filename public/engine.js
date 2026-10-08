@@ -24,7 +24,11 @@
   const ENGINE_CONFIG = {
     weights: { free: 0, buffer: 1, flexible: 10, protected: 50, perDisplaced: 1 },
     stepMin: 15,               // bước dò khung ứng viên
-    unitMin: 50,               // độ dài 1 "block" học khi một dòng lịch khung chứa nhiều block
+    unitMin: 50,               // độ dài 1 block bù / 1 block khi bật chia khung
+    splitTemplates: false,     // false: khung lớn (08:00 đến 12:00) là MỘT block dài; true: chia theo "count" thành block 50 phút
+    focusFirstPromptMin: 50,   // đồng hồ Flowtime: lần đầu hỏi nghỉ sau 50 phút học
+    focusRepeatPromptMin: 25,  // chọn học tiếp thì 25 phút sau hỏi lại
+    focusStreakMinMin: 25,     // một ngày tính vào chuỗi khi học thật ít nhất 25 phút
     protectedMaxPriority: 2,   // chỉ việc ưu tiên 1..2 được chiếm block protected
     unrankedGoalRank: 5,       // mục tiêu chưa đặt hạng coi như hạng thấp nhất
     noGoalRank: 6,             // block không gắn mục tiêu: thấp hơn mọi mục tiêu
@@ -334,18 +338,31 @@
     items.forEach(it => { if (it.b.type !== 'buffer' && !displacedIds.has(it.b.id)) busy.push({ s: it.s, e: it.e }); });
     busy.push({ s: ps, e: pe });
     const bufferItems = items.filter(it => it.b.type === 'buffer');
-    for (const it of best.ev.displaced) {
+    /* Block dài chỉ bị chiếm một phần (ví dụ việc 09:00 đến 11:00 chen vào block 08:00 đến 12:00):
+       giữ nguyên phần ngoài (keep), chỉ dời phần bị chiếm. Phần giữ lại phải được tính là bận
+       TRƯỚC khi tìm chỗ cho bất kỳ phần nào. */
+    const pieces = best.ev.displaced.map(it => {
+      const os = Math.max(it.s, ps), oe = Math.min(it.e, pe);
+      const keep = [];
+      if (os > it.s) keep.push({ s: it.s, e: os });
+      if (oe < it.e) keep.push({ s: oe, e: it.e });
+      keep.forEach(k => busy.push(k));
+      return { it, os, oe, keep, partial: keep.length > 0 };
+    });
+    for (const pc of pieces) {
+      const it = pc.it;
       const lo = Math.max(nowMs, startOfLocalDay(it.s, off));
       const hi = blockDeadline(it, off);
-      const home = findHome(it.e - it.s, lo, hi, it.s, it.b.energy, busy, bufferItems, off, cfg);
+      const home = findHome(pc.oe - pc.os, lo, hi, pc.os, it.b.energy, busy, bufferItems, off, cfg);
+      const keepIso = pc.keep.map(k => ({ start: toISO(k.s, off), end: toISO(k.e, off) }));
       if (home) {
         busy.push({ s: home.s, e: home.e });
-        result.moved.push({ blockId: it.b.id, block: it.b, from: { start: it.b.start, end: it.b.end },
-          to: { start: toISO(home.s, off), end: toISO(home.e, off) }, via: home.via });
+        result.moved.push({ blockId: it.b.id, block: it.b, from: { start: toISO(pc.os, off), end: toISO(pc.oe, off) },
+          to: { start: toISO(home.s, off), end: toISO(home.e, off) }, via: home.via, partial: pc.partial, keep: keepIso });
       } else {
-        // 5. Không có chỗ trong hạn: mất block này, báo số phút mục tiêu bị hụt
-        result.lost.push(it.b);
-        if (it.b.goalId) result.lostMinByGoal[it.b.goalId] = (result.lostMinByGoal[it.b.goalId] || 0) + minutesOf(it);
+        // 5. Không có chỗ trong hạn: mất phần này, báo số phút mục tiêu bị hụt
+        result.lost.push(pc.partial ? Object.assign({}, it.b, { start: toISO(pc.os, off), end: toISO(pc.oe, off), partial: true, keep: keepIso }) : it.b);
+        if (it.b.goalId) result.lostMinByGoal[it.b.goalId] = (result.lostMinByGoal[it.b.goalId] || 0) + Math.round((pc.oe - pc.os) / MIN);
       }
     }
     if (result.lost.length) warnings.push({ code: 'lost_blocks', message: `${result.lost.length} block không còn chỗ trong hạn.` });
@@ -404,8 +421,31 @@
     const changes = [];
     let seq = 0;
     const movedMap = {}; (proposal.moved || []).forEach(m => { movedMap[m.blockId] = m; });
-    const lostIds = new Set((proposal.lost || []).map(b => b.id));
+    const lostMap = {}; (proposal.lost || []).forEach(b => { lostMap[b.id] = b; });
+    const lostIds = new Set(Object.keys(lostMap));
+    const extra = [];
+    const trim = (b, keep, piece, how) => {
+      const first = Object.assign({}, b, { start: keep[0].start, end: keep[0].end, updatedAt: nowIso, splitBy: d.id || '' });
+      changes.push(makeChange(++seq, nowMs, off, 'block', b.id, 'trim', pick(b), pick(first), 'disruption', d.id));
+      if (keep[1]) {
+        const rest = Object.assign({}, b, { id: `${b.id}-r-${d.id || 'x'}`, start: keep[1].start, end: keep[1].end, gcalEventId: '', gcalEtag: '',
+          splitFrom: b.id, updatedAt: nowIso });
+        extra.push(rest);
+        changes.push(makeChange(++seq, nowMs, off, 'block', rest.id, 'create', null, pick(rest), 'disruption', d.id));
+      }
+      if (piece) {
+        const p = Object.assign({}, b, { id: `${b.id}-m-${d.id || 'x'}`, start: piece.to.start, end: piece.to.end, gcalEventId: '', gcalEtag: '',
+          splitFrom: b.id, movedFrom: { start: piece.from.start, end: piece.from.end }, movedBy: d.id || '', updatedAt: nowIso });
+        extra.push(p);
+        changes.push(makeChange(++seq, nowMs, off, 'block', p.id, 'create', null, pick(p), 'disruption', d.id));
+      } else {
+        changes.push(makeChange(++seq, nowMs, off, 'block', b.id, 'lose_part', { start: how.start, end: how.end }, null, 'disruption', d.id));
+      }
+      return first;
+    };
     const out = (blocks || []).map(b => {
+      if (movedMap[b.id] && movedMap[b.id].partial) return trim(b, movedMap[b.id].keep, movedMap[b.id], null);
+      if (lostMap[b.id] && lostMap[b.id].partial) return trim(b, lostMap[b.id].keep, null, lostMap[b.id]);
       if (movedMap[b.id]) {
         const m = movedMap[b.id];
         const nb = Object.assign({}, b, { start: m.to.start, end: m.to.end, movedFrom: { start: b.start, end: b.end }, movedBy: d.id || '', updatedAt: nowIso });
@@ -430,6 +470,7 @@
       if (i >= 0) out[i] = nb; else out.push(nb);
       changes.push(makeChange(++seq, nowMs, off, 'block', nb.id, 'create', null, pick(nb), 'disruption', d.id));
     }
+    extra.forEach(x => { const i = out.findIndex(b => b.id === x.id); if (i >= 0) out[i] = x; else out.push(x); });
     return { blocks: out, changes };
   }
 
@@ -450,7 +491,7 @@
       const s0 = localToMs(ymd, t.start, off);
       let e0 = localToMs(t.endNextDay ? addDaysYmd(ymd, 1) : ymd, t.end, off);
       if (e0 <= s0) e0 = localToMs(addDaysYmd(ymd, 1), t.end, off);
-      const count = Math.max(1, Math.floor(Number(t.count) || 1));
+      const count = cfg.splitTemplates ? Math.max(1, Math.floor(Number(t.count) || 1)) : 1;
       const stepRaw = (e0 - s0) / count;
       const step = count > 1 ? Math.round(stepRaw / (5 * MIN)) * 5 * MIN : e0 - s0;
       const unit = count > 1 ? Math.min(cfg.unitMin * MIN, step) : e0 - s0;
@@ -676,13 +717,104 @@
     return { items, skipped };
   }
 
+  /* ======================= Đồng hồ học Flowtime =======================
+     Đếm lên, không ép dừng. Tới mốc (50 phút, rồi mỗi 25 phút nếu chọn học tiếp) thì HỎI nghỉ.
+     Nghỉ khoảng 1/5 thời gian của đoạn vừa học, từ 5 tới 20 phút. Mọi thời điểm là ISO, mọi hàm
+     nhận now nên test được. run = phiên đang chạy; kết thúc thì thành session để lưu. */
+  function focusStart(now, opts, ctx) {
+    const { cfg, off } = makeCtx(ctx); const t = toISO(parseTime(now, off), off);
+    opts = opts || {};
+    return { id: opts.id || 'fs-' + parseTime(now, off), goalId: opts.goalId || '', blockId: opts.blockId || '', label: opts.label || '',
+      startedAt: t, phase: 'focus', phaseStart: t, segments: [], promptAtMin: cfg.focusFirstPromptMin, breakEnd: '', breakMin: 0, note: '', breaks: 0 };
+  }
+  function focusMinutes(run, now, ctx) {
+    const { off } = makeCtx(ctx);
+    if (!run) return 0;
+    const done = (run.segments || []).reduce((a, g) => a + (parseTime(g.end, off) - parseTime(g.start, off)), 0);
+    const live = run.phase === 'focus' ? Math.max(0, parseTime(now, off) - parseTime(run.phaseStart, off)) : 0;
+    return (done + live) / MIN;
+  }
+  function focusPhaseMinutes(run, now, ctx) {
+    const { off } = makeCtx(ctx);
+    return run && run.phase === 'focus' ? Math.max(0, parseTime(now, off) - parseTime(run.phaseStart, off)) / MIN : 0;
+  }
+  function suggestBreakMin(workMin) { return Math.max(5, Math.min(20, Math.round((Number(workMin) || 0) / 5))); }
+  /* Đã tới lúc hỏi nghỉ chưa */
+  function focusShouldPrompt(run, now, ctx) { return !!run && run.phase === 'focus' && focusMinutes(run, now, ctx) >= run.promptAtMin; }
+  function focusContinue(run, now, ctx) {
+    const { cfg } = makeCtx(ctx);
+    return Object.assign({}, run, { promptAtMin: Math.floor(focusMinutes(run, now, ctx)) + cfg.focusRepeatPromptMin });
+  }
+  function focusBreak(run, now, note, ctx, breakMin) {
+    const { off } = makeCtx(ctx); const nowMs = parseTime(now, off), t = toISO(nowMs, off);
+    if (!run || run.phase !== 'focus') return run;
+    const phaseMin = focusPhaseMinutes(run, now, ctx);
+    const bm = Number(breakMin) > 0 ? Number(breakMin) : suggestBreakMin(phaseMin);
+    const segs = (run.segments || []).slice();
+    if (nowMs > parseTime(run.phaseStart, off)) segs.push({ start: run.phaseStart, end: t });
+    return Object.assign({}, run, { phase: 'break', phaseStart: t, segments: segs, breakMin: bm, breakEnd: toISO(nowMs + bm * MIN, off),
+      note: note || run.note || '', breaks: (run.breaks || 0) + 1 });
+  }
+  function focusResume(run, now, ctx) {
+    const { cfg, off } = makeCtx(ctx); const t = toISO(parseTime(now, off), off);
+    if (!run || run.phase !== 'break') return run;
+    return Object.assign({}, run, { phase: 'focus', phaseStart: t, breakEnd: '', promptAtMin: Math.floor(focusMinutes(run, now, ctx)) + cfg.focusFirstPromptMin });
+  }
+  function focusStop(run, now, ctx) {
+    const { off } = makeCtx(ctx); const nowMs = parseTime(now, off), t = toISO(nowMs, off);
+    if (!run) return null;
+    const segs = (run.segments || []).slice();
+    if (run.phase === 'focus' && nowMs > parseTime(run.phaseStart, off)) segs.push({ start: run.phaseStart, end: t });
+    const minutes = Math.round(segs.reduce((a, g) => a + (parseTime(g.end, off) - parseTime(g.start, off)), 0) / MIN);
+    return { id: run.id, goalId: run.goalId || '', blockId: run.blockId || '', label: run.label || '', startedAt: run.startedAt, endedAt: t,
+      segments: segs, minutes, breaks: run.breaks || 0, note: run.note || '', updatedAt: t };
+  }
+  /* Gợi ý check-in theo số phút đồng hồ ghi được trong block (cùng mục tiêu) */
+  function checkinFromFocus(block, sessions, ctx) {
+    const { off } = makeCtx(ctx);
+    const s = parseTime(block.start, off), e = parseTime(block.end, off);
+    const ms = focusSegmentsOf(sessions, off).filter(g => g.goalId === block.goalId).reduce((a, g) => a + Math.max(0, Math.min(e, g.e) - Math.max(s, g.s)), 0);
+    if (ms <= 0) return null;
+    const minutes = Math.round(ms / MIN), ratio = Math.min(1, ms / (e - s));
+    return { minutes, ratio: Math.round(ratio * 100) / 100, result: ratio >= 0.95 ? 'done' : 'partial' };
+  }
+  /* Phút học theo ngày và chuỗi ngày liên tiếp (tính tới hôm nay; hôm nay chưa học thì tính tới hôm qua) */
+  function focusDaily(sessions, ctx) {
+    const { off } = makeCtx(ctx); const out = {};
+    (sessions || []).forEach(x => { if (!x || x.deletedAt) return; (x.segments || []).forEach(g => {
+      const s = parseTime(g.start, off), e = parseTime(g.end, off); const d = localParts(s, off).ymd;
+      out[d] = (out[d] || 0) + Math.max(0, e - s) / MIN; }); });
+    Object.keys(out).forEach(k => { out[k] = Math.round(out[k]); });
+    return out;
+  }
+  function focusStreak(sessions, now, ctx) {
+    const { cfg, off } = makeCtx(ctx); const daily = focusDaily(sessions, ctx);
+    let d = localParts(parseTime(now, off), off).ymd;
+    if (!(daily[d] >= cfg.focusStreakMinMin)) d = addDaysYmd(d, -1);
+    let n = 0; while (daily[d] >= cfg.focusStreakMinMin) { n++; d = addDaysYmd(d, -1); }
+    return n;
+  }
+
   /* ======================= Ngân sách tuần thực tế ======================= */
-  function weekBudget(blocks, goals, checkins, weekMondayYmd, now, ctx) {
+  /* Phút học thật (đồng hồ) rơi vào block cùng mục tiêu: nếu block đã check-in thì check-in đã tính,
+     không cộng lần nữa; nếu chưa check-in thì trừ phần đó khỏi "còn trong kế hoạch / chưa rõ". */
+  function focusSegmentsOf(sessions, off) {
+    const out = [];
+    (sessions || []).forEach(x => {
+      if (!x || x.deletedAt || !x.goalId) return;
+      (x.segments || []).forEach(g => { const s = parseTime(g.start, off), e = parseTime(g.end, off); if (e > s) out.push({ goalId: x.goalId, s, e }); });
+    });
+    return out;
+  }
+  function weekBudget(blocks, goals, checkins, weekMondayYmd, now, ctx, sessions) {
+    const segs = focusSegmentsOf(sessions, makeCtx(ctx).off);
+    const segOverlap = (goalId, s, e) => segs.reduce((acc, g) => acc + (g.goalId === goalId ? Math.max(0, Math.min(e, g.e) - Math.max(s, g.s)) : 0), 0);
     const { cfg, off } = makeCtx(ctx);
     const nowMs = parseTime(now, off);
     const wr = weekRange(weekMondayYmd, off);
     const ck = {}; (checkins || []).filter(c => !c.deletedAt).forEach(c => { ck[c.blockId] = c; });
     const per = {};
+    const checkedBlocks = [];
     (blocks || []).forEach(b => {
       if (!b || b.deletedAt || !countsForBudget(b)) return;
       const s = parseTime(b.start, off), e = parseTime(b.end, off);
@@ -690,10 +822,20 @@
       const mins = Math.round((Math.min(e, wr.e) - Math.max(s, wr.s)) / MIN);
       const r = per[b.goalId] || (per[b.goalId] = { doneMin: 0, remainingMin: 0, missedMin: 0, unknownMin: 0 });
       const c = ck[b.id];
-      if (c) { const got = Math.round(mins * clampRatio(c.completedRatio)); r.doneMin += got; r.missedMin += mins - got; return; }
+      if (c) { const got = Math.round(mins * clampRatio(c.completedRatio)); r.doneMin += got; r.missedMin += mins - got; checkedBlocks.push({ goalId: b.goalId, s, e }); return; }
       if (b.status === 'moved' || b.status === 'skipped') { r.missedMin += mins; return; }
-      if (b.status === 'unknown') { r.unknownMin += mins; return; }
-      if (e > nowMs) r.remainingMin += mins; else r.unknownMin += mins; // đã qua mà chưa check-in: chưa biết
+      const notYet = Math.max(0, mins - Math.round(segOverlap(b.goalId, Math.max(s, wr.s), Math.min(e, wr.e)) / MIN)); // phần đã học bằng đồng hồ tính ở dưới
+      if (b.status === 'unknown') { r.unknownMin += notYet; return; }
+      if (e > nowMs) r.remainingMin += notYet; else r.unknownMin += notYet; // đã qua mà chưa check-in: chưa biết
+    });
+    // Phút học thật từ đồng hồ, trừ phần nằm trong block cùng mục tiêu đã check-in (đã tính ở trên)
+    segs.forEach(g => {
+      const s = Math.max(g.s, wr.s), e = Math.min(g.e, wr.e); if (e <= s) return;
+      let ms = e - s;
+      checkedBlocks.forEach(cb => { if (cb.goalId === g.goalId) ms -= Math.max(0, Math.min(e, cb.e) - Math.max(s, cb.s)); });
+      const r = per[g.goalId] || (per[g.goalId] = { doneMin: 0, remainingMin: 0, missedMin: 0, unknownMin: 0 });
+      const m = Math.round(Math.max(0, ms) / MIN);
+      r.doneMin += m; r.focusMin = (r.focusMin || 0) + m;
     });
     return sortGoals(goals, cfg).map(g => {
       const r = per[g.id] || { doneMin: 0, remainingMin: 0, missedMin: 0, unknownMin: 0 };
@@ -701,7 +843,7 @@
       const projectedMin = r.doneMin + r.remainingMin;
       const rank = goalRank(g, cfg);
       const warn = Number(g.rank) === 1 && targetMin !== null && targetMin > 0 && projectedMin < targetMin * cfg.rank1WarnRatio;
-      return { goalId: g.id, title: g.title || '', rank, rawRank: g.rank, targetMin, doneMin: r.doneMin, remainingMin: r.remainingMin,
+      return { goalId: g.id, title: g.title || '', rank, rawRank: g.rank, targetMin, doneMin: r.doneMin, focusMin: r.focusMin || 0, remainingMin: r.remainingMin,
         missedMin: r.missedMin, unknownMin: r.unknownMin, projectedMin,
         shortfallPct: targetMin ? Math.max(0, Math.round((1 - projectedMin / targetMin) * 100)) : null, warn };
     });
@@ -802,7 +944,9 @@
 
   return {
     ENGINE_CONFIG, propose, applyProposal, generateWeekBlocks, checkinQueue, markStaleUnknown, applyCheckin,
-    proposeTaskSlots, proposeMakeup, applyMakeup, parseQuickSchedule, weekBudget, plannedBudget: (blocks, goals, weekYmd, ctx) => { const c = makeCtx(ctx); return plannedBudget(blocks, goals, weekYmd, c.off, c.cfg); },
+    proposeTaskSlots, proposeMakeup, applyMakeup, parseQuickSchedule, weekBudget,
+    focus: { start: focusStart, minutes: focusMinutes, phaseMinutes: focusPhaseMinutes, shouldPrompt: focusShouldPrompt, continue: focusContinue,
+      pause: focusBreak, resume: focusResume, stop: focusStop, suggestBreakMin, checkinFromFocus, daily: focusDaily, streak: focusStreak }, plannedBudget: (blocks, goals, weekYmd, ctx) => { const c = makeCtx(ctx); return plannedBudget(blocks, goals, weekYmd, c.off, c.cfg); },
     weekStats, emptyBuffersAt, findConflicts, founderSeed, placementBlockId,
     // tiện ích thời gian (dùng chung cho giao diện và test)
     time: { parseTime, parseDeadline, toISO, localParts, localToMs, addDaysYmd, weekStartYmd, sleepIntervals, endOfLocalDay },

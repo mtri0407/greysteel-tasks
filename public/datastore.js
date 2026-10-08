@@ -11,7 +11,7 @@
   const SCHEMA_VERSION = 2;
   const DATA_FILE_NAME = 'greysteel-tasks-data.json';
   /* Các mảng có phần tử mang `id`, gộp theo id khi hai thiết bị cùng sửa */
-  const ARRAY_KEYS = ['tasks', 'people', 'notes', 'goals', 'blockTemplates', 'blocks', 'disruptions', 'checkins', 'changelogOutbox'];
+  const ARRAY_KEYS = ['tasks', 'people', 'notes', 'goals', 'blockTemplates', 'blocks', 'disruptions', 'checkins', 'changelogOutbox', 'focusSessions'];
   const OBJECT_KEYS = ['profile', 'settings', 'calendarSync'];
 
   const DEFAULT_SLEEP_RULES = [
@@ -19,7 +19,11 @@
   ];
   function defaultSettings() {
     return { sleepRules: DEFAULT_SLEEP_RULES.map(r => Object.assign({}, r, { wakeWeekdays: r.wakeWeekdays.slice() })),
-      syncBlocksToCalendar: true, readCalendar: true, autoGenerateWeek: true };
+      syncBlocksToCalendar: true, readCalendar: true, autoGenerateWeek: true,
+      // Thông báo qua Google Calendar: bản tin buổi sáng và nhắc trước mỗi block
+      morningBrief: true, morningBriefTime: '06:00', blockReminders: true, reminderVersion: 0, briefEvents: {},
+      // Khung lớn (08:00 đến 12:00) là một block dài; bật thì chia thành block 50 phút như trước
+      splitTemplates: false, focusRun: null };
   }
 
   const clone = x => (x === undefined ? undefined : JSON.parse(JSON.stringify(x)));

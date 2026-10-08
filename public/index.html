@@ -274,6 +274,30 @@
   .ci-item{border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;margin-top:10px;}
   .ci-item .ci-btns{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
   .tbl-wrap{overflow-x:auto;}
+  /* ---------- Đồng hồ học ---------- */
+  .focus-bar{position:fixed;left:50%;transform:translateX(-50%);bottom:18px;z-index:44;background:var(--steel-900);color:#fff;border-radius:18px;
+    padding:10px 14px;box-shadow:0 14px 40px rgba(0,0,0,.35);display:flex;flex-wrap:wrap;align-items:center;gap:10px;width:min(560px,calc(100vw - 24px));}
+  .focus-bar.on-break{background:#2f5f3f;}
+  .focus-bar.alert{animation:pulseRing 1.2s infinite;}
+  .focus-bar .fb-main{flex:1;min-width:0;}
+  .focus-bar .fb-clock{font-size:26px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.1;}
+  .focus-bar .fb-sub{font-size:12px;opacity:.85;overflow-wrap:anywhere;}
+  .focus-bar .fb-acts{display:flex;gap:6px;}
+  .focus-bar .btn-ghost{background:rgba(255,255,255,.14);color:#fff;}
+  .focus-bar .fb-ask{display:none;width:100%;}
+  .focus-bar.ask .fb-ask{display:block;}
+  .focus-bar .fb-q{font-size:13.5px;margin-bottom:6px;}
+  .focus-bar .fb-ask input{margin:0 0 8px;color:var(--text);}
+  .focus-bar .fb-row{display:flex;gap:6px;flex-wrap:wrap;}
+  @media(max-width:600px){.focus-bar{bottom:76px;}}
+  .focus-card .focus-today{font-size:14px;margin:4px 0 8px;}
+  .focus-card .focus-today strong{font-size:22px;color:var(--orange-600);}
+  .focus-week{display:flex;gap:6px;align-items:flex-end;height:70px;}
+  .fw-col{flex:1;display:flex;flex-direction:column;align-items:center;height:100%;justify-content:flex-end;}
+  .fw-bar{width:100%;max-width:26px;background:var(--orange-400);border-radius:6px 6px 2px 2px;min-height:2px;}
+  .fw-d{font-size:10.5px;color:var(--text-soft);margin-top:3px;}
+  .blk .blk-acts button.blk-go{background:var(--orange-500);color:#fff;}
+  .ci-focus{font-size:12.5px;margin:6px 0;display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
   .day-head{display:flex;align-items:center;justify-content:space-between;gap:6px;}
   .day-del{border:none;background:none;font-size:13px;opacity:.55;padding:2px 4px;border-radius:6px;cursor:pointer;}
   .day-del:hover{opacity:1;background:#fdeceb;}
@@ -459,6 +483,7 @@
       </div>
       <div style="display:flex;align-items:center;gap:10px;">
         <span id="connStatus" class="status-pill ok">● đã đồng bộ</span>
+        <button class="icon-btn" id="focusBtn" title="Bắt đầu học (đồng hồ Flowtime)">⏱</button>
         <button class="icon-btn" id="helpBtn" title="Hướng dẫn cho màn hình này">❓</button>
         <button class="icon-btn" id="themeToggle" title="Đổi giao diện sáng/tối">🌙</button>
       </div>
@@ -477,6 +502,7 @@
 <script src="/calsync.js"></script>
 <script src="/guide.js"></script>
 <script src="/assistant.js"></script>
+<script src="/focusui.js"></script>
 <script>
 /* ======================= CONFIG ======================= */
 /* 1) Tạo OAuth Client ID trên Google Cloud Console (xem HUONG_DAN.md) và dán vào đây.
@@ -568,7 +594,7 @@ let state = {
   planner: {level:'list', goalId:null, phaseId:null},
   listFilter: {q:'', status:'', quadrant:''},
   /* Lịch thông minh (lưu lên Drive, xem public/datastore.js) */
-  settings: GSData.defaultSettings(), blockTemplates: [], blocks: [], disruptions: [], checkins: [],
+  settings: GSData.defaultSettings(), blockTemplates: [], blocks: [], disruptions: [], checkins: [], focusSessions: [],
   calendarSync: {syncToken:'', lastSyncAt:''}, changelogOutbox: [],
   /* chỉ dùng lúc chạy */
   driveVersion: null, baseSnapshot: null, extraData: {}, pendingBackup: null, changelogFileIds: {},
@@ -695,6 +721,7 @@ async function onSignedIn(){
   if(!remindersStarted){ remindersStarted=true; setInterval(checkReminders, 5*60*1000); }
   checkReminders();
   initAssistant();
+  initFocus();
   smartOnOpen();
 }
 let remindersStarted=false;
@@ -820,6 +847,7 @@ function scheduleSave(){
   state.saving=true; renderTopbar();
   clearTimeout(saveTimer);
   saveTimer=setTimeout(saveToDrive, 500);
+  if(typeof scheduleBriefSync==='function') scheduleBriefSync();
 }
 async function saveToDrive(){
   if(!state.dataLoaded) return;
@@ -955,7 +983,7 @@ async function syncTaskEvent(t){
   }
   const body = {
     summary:'🍊 '+t.title, description:t.description||'', start, end,
-    reminders:{useDefault:false, overrides:[{method:'popup',minutes:30},{method:'popup',minutes:1440}]},
+    reminders:{useDefault:false, overrides:[{method:'popup',minutes:60},{method:'popup',minutes:1440}]}, // hạn chót: nhắc trước 1 ngày và 1 tiếng
   };
   try{
     if(t.calendarEventId){ const r=await calUpdate(t.calendarEventId, body); return r? r.id : t.calendarEventId; }
@@ -1086,6 +1114,7 @@ function softRefresh(){ paintView(false); }
 function RENDER_HOME(){
   const wrap=el('div');
   wrap.appendChild(renderSmartBanners());
+  wrap.appendChild(focusSummaryCard());
   const today=todayStr();
   const dueToday = state.tasks.filter(t=>t.status!=='done' && t.dueDate===today);
   const overdue = state.tasks.filter(t=>t.status!=='done' && t.dueDate && t.dueDate<today);
@@ -1249,7 +1278,7 @@ function openTaskModal(t, forceNew){
       ${['todo','doing','done'].map(s=>`<option value="${s}" ${(t.status||'todo')===s?'selected':''}>${STATUS_META[s].dot} ${STATUS_META[s].label}</option>`).join('')}
     </select>
     <label>Nhãn (cách nhau bởi dấu phẩy)</label><input id="f-tags" value="${escAttr(t.tags)}" placeholder="công việc, gấp">
-    <label class="switch" style="margin-top:12px;"><input type="checkbox" id="f-sync" ${t.syncCalendar?'checked':''}> Đồng bộ vào Google Calendar (nhắc hẹn thật)</label>
+    <label class="switch" style="margin-top:12px;"><input type="checkbox" id="f-sync" ${(t.syncCalendar||!isEdit)?'checked':''}> Đồng bộ vào Google Calendar (nhắc trước 1 ngày và 1 tiếng)</label>
     <details style="margin-top:10px;"><summary class="subtle">🗓️ Lịch thông minh (tuỳ chọn)</summary>
       <div class="field-row">
         <div><label>Ước lượng số block</label><input type="number" min="1" max="20" id="f-est" value="${Number(t.estBlocks)||1}"></div>
@@ -2285,7 +2314,12 @@ const REASONS = {disruption:'Phát sinh', tired:'Mệt', distracted:'Mất tập
 const WEEKDAYS = ['CN','T2','T3','T4','T5','T6','T7'];
 const VIA_LABEL = {buffer:'vào khung đệm', energy:'khoảng trống cùng năng lượng', free:'khoảng trống'};
 function tzOff(){ return -new Date().getTimezoneOffset(); }
-function smartCtx(){ return {sleepRules: state.settings.sleepRules||[], tzOffsetMin: tzOff()}; }
+function smartCtx(){ return {sleepRules: state.settings.sleepRules||[], tzOffsetMin: tzOff(), config:{splitTemplates: state.settings.splitTemplates===true}}; }
+/* Phiên đã lưu + phiên đang chạy (tính tới bây giờ) để ngân sách và gợi ý check-in thấy cả phút đang học */
+function focusAllSessions(){
+  const run=state.settings.focusRun;
+  return run ? state.focusSessions.concat([GSEngine.focus.stop(run, nowIso(), smartCtx())]) : state.focusSessions;
+}
 function nowIso(){ return GSEngine.time.toISO(Date.now(), tzOff()); }
 function tms(iso){ return GSEngine.time.parseTime(iso, tzOff()); }
 function hm(iso){ return GSEngine.time.localParts(tms(iso), tzOff()).hhmm; }
@@ -2316,7 +2350,7 @@ async function pushBlockEvent(id){
   if(!GSCalSync.shouldPush(b)) return false;
   const token=await ensureToken();
   const tz=Intl.DateTimeFormat().resolvedOptions().timeZone||'Asia/Bangkok';
-  const body=JSON.stringify(GSCalSync.blockEventBody(b, state.goals, tz));
+  const body=JSON.stringify(GSCalSync.blockEventBody(b, state.goals, tz, {reminders: state.settings.blockReminders!==false}));
   const H={Authorization:'Bearer '+token,'Content-Type':'application/json'};
   let res=null;
   if(b.gcalEventId){
@@ -2498,12 +2532,68 @@ async function smartTick(){
   markStale();
   await calendarPull();
 }
+/* ---------- Thông báo trên điện thoại qua Google Calendar ----------
+   Web không gửi được thông báo khi đã đóng app, nên dùng chính Google Calendar (đã có quyền báo trên
+   điện thoại): mỗi block nhắc trước 1 tiếng và lúc bắt đầu; mỗi ngày một sự kiện "bản tin buổi sáng"
+   lúc giờ chọn (mặc định 06:00) tóm tắt lịch và deadline trong ngày. Bản tin được cập nhật khi lịch đổi. */
+const REMINDER_VERSION=1;
+function migrateReminders(){
+  if((state.settings.reminderVersion||0)>=REMINDER_VERSION || state.settings.syncBlocksToCalendar===false) return;
+  const now=Date.now();
+  const ids=state.blocks.filter(b=>GSCalSync.shouldPush(b) && b.gcalEventId && tms(b.end)>now).map(b=>b.id);
+  state.settings.reminderVersion=REMINDER_VERSION; scheduleSave();
+  if(ids.length) syncBlocksOut(ids);
+}
+let briefTimer=null;
+function scheduleBriefSync(){
+  if(!state.dataLoaded || !state.google.signedIn) return;
+  clearTimeout(briefTimer);
+  briefTimer=setTimeout(()=>{ calQueue=calQueue.then(syncMorningBriefs).catch(()=>{}); }, 3000);
+}
+async function syncMorningBriefs(){
+  if(!state.dataLoaded) return;
+  const map=Object.assign({}, state.settings.briefEvents||{});
+  const on=state.settings.morningBrief!==false && state.settings.syncBlocksToCalendar!==false;
+  const time=state.settings.morningBriefTime||'06:00';
+  const tz=Intl.DateTimeFormat().resolvedOptions().timeZone||'Asia/Bangkok';
+  const today=todayStr(); let changed=false;
+  Object.keys(map).forEach(d=>{ if(d<GSEngine.time.addDaysYmd(today,-1)){ delete map[d]; changed=true; } });
+  let token=null;
+  for(let i=0;i<8;i++){
+    const d=GSEngine.time.addDaysYmd(today,i);
+    const brief=on ? GSCalSync.buildDayBrief(d, state.blocks, state.tasks, state.goals, smartCtx()) : null;
+    const cur=map[d];
+    const sig=GSCalSync.briefSignature(brief, time);
+    if(cur && cur.sig===sig) continue;
+    if(!brief && !cur) continue;
+    if(!brief || (!cur && GSEngine.time.localToMs(d,time,tzOff())<Date.now())){
+      if(cur && cur.id){ await calDelete(cur.id); delete map[d]; changed=true; }
+      continue;   // hôm nay đã qua giờ bản tin thì không tạo mới
+    }
+    try{
+      token=token||await ensureToken();
+      const H={Authorization:'Bearer '+token,'Content-Type':'application/json'};
+      const body=JSON.stringify(GSCalSync.briefEventBody(brief, time, tz, smartCtx()));
+      let res=null;
+      if(cur && cur.id){
+        res=await fetch(CAL_EVENTS+'/'+encodeURIComponent(cur.id), {method:'PATCH', headers:H, body});
+        if(res.status===404||res.status===410) res=null; else if(!res.ok) continue;
+      }
+      if(!res){ res=await fetch(CAL_EVENTS, {method:'POST', headers:H, body}); if(!res.ok) continue; }
+      const j=await res.json().catch(()=>null);
+      if(j && j.id){ map[d]={id:j.id, sig}; changed=true; }
+    }catch(e){ /* lần sau thử lại */ }
+  }
+  if(changed){ state.settings.briefEvents=map; scheduleSave(); }
+}
 let smartTimersStarted=false;
 async function smartOnOpen(){
   if(!state.dataLoaded) return;
   autoGenerateWeeks();
   markStale();
   await calendarPull();
+  migrateReminders();
+  scheduleBriefSync();
   if(!smartTimersStarted){
     smartTimersStarted=true;
     setInterval(smartTick, 5*60*1000);
@@ -2649,6 +2739,9 @@ function blockCard(b, conflict){
   const ended=tms(b.end)<=Date.now();
   if(ended && b.status==='planned' && ['flexible','protected'].includes(b.type) && !state.checkins.some(x=>x.blockId===b.id)){
     const ci=el('button',null,'Check-in'); ci.onclick=()=>openCheckinModal([b]); acts.appendChild(ci);
+  }
+  if(GSEngine.isActive(b) && b.goalId && !['fixed','buffer'].includes(b.type) && b.source!=='external' && Date.now()>=tms(b.start)-30*60000 && Date.now()<tms(b.end)){
+    const go=el('button','blk-go','▶ Học'); go.onclick=()=>openFocusStart({goalId:b.goalId, blockId:b.id, label:b.label}); acts.appendChild(go);
   }
   if(canMakeup(b)){ const mu=el('button',null,'Xếp bù'); mu.onclick=()=>openRecoveryModal([{blockId:b.id, ratio:ratioOf(b)}], []); acts.appendChild(mu); }
   if(b.source!=='external' && GSEngine.isActive(b)){
@@ -3007,6 +3100,7 @@ function openCheckinModal(onlyBlocks){
     body.innerHTML=`<h2>Check-in ✅</h2><div class="subtle">Block đã kết thúc. Bạn làm được tới đâu?</div>`+
       queue.map(b=>`<div class="ci-item" data-ci="${escAttr(b.id)}"><div><strong>${esc(b.label)}</strong> ${b.goalId?'· '+esc(goalTitle(b.goalId)):''}</div>
         <div class="subtle">${fmtSlot(b.start,b.end)}</div>
+        ${(()=>{ const sg=b.goalId && GSEngine.focus.checkinFromFocus(b, focusAllSessions(), smartCtx()); return sg?`<div class="ci-focus">⏱ Đồng hồ ghi <strong>${sg.minutes} phút</strong> (${Math.round(sg.ratio*100)}% block) <button class="btn btn-primary btn-sm" data-r="focus">Xác nhận theo đồng hồ</button></div>`:''; })()}
         <div class="ci-btns"><button class="btn btn-primary btn-sm" data-r="done">Xong</button><button class="btn btn-ghost btn-sm" data-r="partial">Một phần</button><button class="btn btn-ghost btn-sm" data-r="skipped">Bỏ</button></div>
         <div class="ci-more" style="display:none;"></div></div>`).join('')+
       `<div class="modal-actions"><button class="btn btn-ghost" id="mCancel">Để sau</button></div>`;
@@ -3016,6 +3110,12 @@ function openCheckinModal(onlyBlocks){
       $$('button[data-r]', item).forEach(btn=>btn.onclick=()=>{
         const r=btn.dataset.r;
         if(r==='done'){ returned.push(...doCheckin(b,'done',1,'','')); draw(); return; }
+        if(r==='focus'){
+          const sg=GSEngine.focus.checkinFromFocus(b, focusAllSessions(), smartCtx()); if(!sg) return;
+          returned.push(...doCheckin(b, sg.result, sg.ratio, '', 'theo đồng hồ '+sg.minutes+' phút'));
+          if(sg.result!=='done') missed.push({blockId:b.id, ratio:sg.ratio});
+          draw(); return;
+        }
         const more=$('.ci-more',item); more.style.display='block';
         more.innerHTML=`${r==='partial'?`<label>Hoàn thành được</label><select class="ci-ratio"><option value="0.25">25%</option><option value="0.5" selected>50%</option><option value="0.75">75%</option></select>`:''}
           <label>Lý do</label><select class="ci-reason">${Object.keys(REASONS).map(k=>`<option value="${k}">${REASONS[k]}</option>`).join('')}</select>
@@ -3220,6 +3320,12 @@ function renderSleepSettings(){
     <label class="switch"><input type="checkbox" id="st-push" ${s.syncBlocksToCalendar!==false?'checked':''}> Ghi block lên Google Calendar (màu theo loại block)</label>
     <label class="switch" style="margin-top:8px;"><input type="checkbox" id="st-read" ${s.readCalendar!==false?'checked':''}> Đọc ngược Google Calendar khi mở app và mỗi 5 phút</label>
     <label class="switch" style="margin-top:8px;"><input type="checkbox" id="st-auto" ${s.autoGenerateWeek!==false?'checked':''}> Mỗi Chủ nhật tự sinh block cho tuần tới từ lịch khung</label>
+    <label class="switch" style="margin-top:8px;"><input type="checkbox" id="st-split" ${s.splitTemplates===true?'checked':''}> Chia khung dài thành block 50 phút (tắt: khung 08:00 đến 12:00 là một phiên dài)</label>
+    <h4 style="margin:16px 0 6px;">🔔 Thông báo trên điện thoại (qua Google Calendar)</h4>
+    <label class="switch"><input type="checkbox" id="st-brief" ${s.morningBrief!==false?'checked':''}> Bản tin buổi sáng tóm tắt lịch và deadline trong ngày, lúc</label>
+    <input type="time" id="st-brieftime" value="${escAttr(s.morningBriefTime||'06:00')}" style="max-width:140px;margin-top:6px;">
+    <label class="switch" style="margin-top:8px;"><input type="checkbox" id="st-remind" ${s.blockReminders!==false?'checked':''}> Nhắc trước mỗi block 1 tiếng và lúc bắt đầu</label>
+    <p class="subtle" style="margin-top:6px;">Cần bật "Ghi block lên Google Calendar" ở trên và bật thông báo của ứng dụng Google Calendar trên điện thoại. Việc có hạn chót (bật đồng bộ Calendar) được nhắc trước 1 ngày và 1 tiếng.</p>
     <p class="subtle" style="margin-top:8px;">Lần đọc lịch gần nhất: ${state.calendarSync.lastSyncAt?esc(fmtDate(ymdOf(state.calendarSync.lastSyncAt))+' '+hm(state.calendarSync.lastSyncAt)):'chưa có'}</p>`;
   wrap.appendChild(opt);
   const danger=el('div','card alert-card'); danger.style.marginTop='16px';
@@ -3246,6 +3352,10 @@ function renderSleepSettings(){
     $('#st-push').onchange=e=>{ state.settings.syncBlocksToCalendar=e.target.checked; scheduleSave(); };
     $('#st-read').onchange=e=>{ state.settings.readCalendar=e.target.checked; scheduleSave(); };
     $('#st-auto').onchange=e=>{ state.settings.autoGenerateWeek=e.target.checked; scheduleSave(); };
+    $('#st-split').onchange=e=>{ state.settings.splitTemplates=e.target.checked; scheduleSave(); toast('Áp dụng cho các tuần sinh từ giờ'); };
+    $('#st-brief').onchange=e=>{ state.settings.morningBrief=e.target.checked; scheduleSave(); };
+    $('#st-brieftime').onchange=e=>{ if(e.target.value){ state.settings.morningBriefTime=e.target.value; scheduleSave(); } };
+    $('#st-remind').onchange=e=>{ state.settings.blockReminders=e.target.checked; state.settings.reminderVersion=0; migrateReminders(); toast('Đang cập nhật nhắc hẹn trên Google Calendar'); };
   });
   return wrap;
 }
@@ -3256,7 +3366,7 @@ function RENDER_BUDGET(){
   wrap.appendChild(renderSmartBanners());
   const {head, wk}=weekNav(softRefresh);
   wrap.appendChild(head);
-  const wb=GSEngine.weekBudget(state.blocks, activeGoals(), state.checkins, wk, nowIso(), smartCtx());
+  const wb=GSEngine.weekBudget(state.blocks, activeGoals(), state.checkins, wk, nowIso(), smartCtx(), focusAllSessions());
   wb.filter(x=>x.warn).forEach(x=>wrap.appendChild(el('div','banner alert-card',
     `⚠️ Mục tiêu hạng 1 <strong>${esc(x.title)}</strong> dự kiến chỉ đạt ${fmtH(x.projectedMin)} trên ${fmtH(x.targetMin)} tuần này (hụt ${x.shortfallPct}%).`)));
   const card=el('div','card');
@@ -3266,7 +3376,7 @@ function RENDER_BUDGET(){
     const scale=Math.max(x.targetMin||0, x.projectedMin, 1);
     const r=el('div','budget-row'); r.dataset.goal=x.goalId;
     r.innerHTML=`<div class="bt"><strong>${esc(x.title)}${x.rawRank?' <span class="subtle">(hạng '+x.rawRank+')</span>':''}</strong>
-      <span>đã làm <strong>${fmtH(x.doneMin)}</strong> · còn trong kế hoạch ${fmtH(x.remainingMin)} · mục tiêu ${x.targetMin!=null?fmtH(x.targetMin):'chưa đặt'}</span></div>
+      <span>đã làm <strong>${fmtH(x.doneMin)}</strong>${x.focusMin?' (đồng hồ '+fmtH(x.focusMin)+')':''} · còn trong kế hoạch ${fmtH(x.remainingMin)} · mục tiêu ${x.targetMin!=null?fmtH(x.targetMin):'chưa đặt'}</span></div>
       <div class="stack-track"><div class="stack-done" style="width:${x.doneMin/scale*100}%"></div>
         <div class="stack-plan" style="left:${x.doneMin/scale*100}%;width:${x.remainingMin/scale*100}%"></div>
         ${x.targetMin?`<div class="stack-target" style="left:calc(${Math.min(100,x.targetMin/scale*100)}% - 1px)"></div>`:''}</div>
@@ -3302,6 +3412,7 @@ $('#themeToggle').onclick=async()=>{
   softRefresh();
 };
 $('#signOutBtn').onclick=signOut;
+$('#focusBtn').onclick=()=>openFocusStart();
 /* Nút ❓: mở đúng mục hướng dẫn của màn hình đang xem */
 $('#helpBtn').onclick=()=>{
   const map={home:'home', planner:'goals', matrix:'tasks', calendar:'tasks', list:'tasks', people:'people', notes:'people', stats:'faq', settings:'settings', budget:'budget',

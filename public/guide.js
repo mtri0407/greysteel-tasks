@@ -7,7 +7,7 @@
    lúc được gọi, nên phải nạp TRƯỚC script chính.
    Khi màn hình nào đổi, sửa luôn nội dung ở đây và TĂNG GUIDE_VERSION để tour được mời xem lại. */
 
-const GUIDE_VERSION = 3; // 2: Trợ lý AI, Xếp bù; 3: Dán lịch nhanh, Xoá hàng loạt
+const GUIDE_VERSION = 4; // 2: Trợ lý AI, Xếp bù; 3: Dán lịch nhanh, Xoá hàng loạt; 4: Đồng hồ học, thông báo qua Google Calendar, khung lớn
 
 /* ---------- Nội dung trang hướng dẫn ----------
    Mỗi mục: id, icon, title, intro, steps (danh sách bước), tips (mẹo), try (nút làm thử). */
@@ -78,6 +78,30 @@ const GUIDE_SECTIONS = [
     tips: ['Sửa lịch khung không đổi các tuần đã sinh. Sửa một block trong tuần cũng không đổi lịch khung.',
       'Block được ghi lên Google Calendar với màu theo loại để bạn xem trên điện thoại. Không muốn thì tắt ở tab Giờ ngủ & cài đặt.'],
     try: [{ label: 'Mở Lịch khung', view: 'schedule', tab: 'templates' }, { label: 'Mở Giờ ngủ', view: 'schedule', tab: 'sleep' }] },
+
+  { id: 'focus', icon: '⏱', title: 'Đồng hồ học (Flowtime) và thời gian học thật', intro: 'Đo bằng thời gian thật sự ngồi học, không ép dừng khi đang vào guồng.',
+    steps: [
+      'Bấm ⏱ ở góc trên, "▶ Bắt đầu học" ở Trang chủ, hoặc "▶ Học" trên block đang diễn ra. Chọn mục tiêu và ghi một việc đầu tiên thật nhỏ (ví dụ "mở đề GT câu 12, làm ý a").',
+      'Trước khi bấm Bắt đầu: để điện thoại ra xa tầm với. 10 phút đầu là "khởi động", chỉ cần ngồi đủ 10 phút, phần khó nhất là bắt đầu.',
+      'Đồng hồ đếm lên, không ép dừng. Tới 50 phút app kêu chuông nhẹ và hỏi: đang có đà thì bấm "🔥 Học tiếp 25 phút", mệt thì "☕ Nghỉ".',
+      'Thời gian nghỉ gợi ý khoảng 1/5 thời gian vừa học (học 50 phút nghỉ 10, học 90 phút nghỉ 18, tối đa 20). Trước khi nghỉ ghi "lát quay lại làm gì", hết giờ nghỉ app báo và hiện lại đúng việc đó.',
+      'Bấm "■ Kết thúc" khi xong. Mọi phút học thật được cộng vào Ngân sách tuần của mục tiêu, kể cả khi học ngoài block. Trang chủ hiện thời gian học hôm nay, 7 ngày gần nhất và chuỗi ngày học (ngày học từ 25 phút trở lên).',
+      'Check-in block đã học bằng đồng hồ: bấm "Xác nhận theo đồng hồ", app tự điền theo số phút đã học trong block.',
+      'Đồng hồ cần tab app còn mở (để nền cũng được). Tải lại trang hay đổi máy, đồng hồ vẫn chạy tiếp.',
+    ],
+    tips: ['Mục tiêu tuần đầu không phải học thật nhiều, mà là nhiều hơn hôm qua một chút. Giữ chuỗi ngày quan trọng hơn một ngày học thật dài.',
+      'Khung lớn (ví dụ 08:00 đến 12:00) mặc định là một phiên dài để giữ momentum. Muốn chia thành block 50 phút như trước thì bật ở tab Giờ ngủ & cài đặt.'],
+    try: [{ label: 'Bắt đầu học', action: 'focus' }] },
+
+  { id: 'notify', icon: '🔔', title: 'Thông báo trên điện thoại', intro: 'Thông báo đi qua Google Calendar nên điện thoại báo cả khi không mở app.',
+    steps: [
+      'Mỗi sáng lúc 06:00 có một thông báo "☀️ Hôm nay: ..." tóm tắt lịch trong ngày; mở ra xem đủ các block và deadline. Đổi giờ ở Lịch thông minh, tab Giờ ngủ & cài đặt.',
+      'Mỗi block được nhắc trước 1 tiếng và đúng lúc bắt đầu (khung đệm không nhắc). Ví dụ 6h học Giải tích thì 5h và 6h điện thoại báo.',
+      'Việc có hạn chót: bật "Đồng bộ vào Google Calendar" (mặc định đã bật cho việc mới) để được nhắc trước 1 ngày và 1 tiếng; deadline cũng hiện trong bản tin buổi sáng.',
+      'Cần: bật "Ghi block lên Google Calendar" (mặc định bật) và cho phép ứng dụng Google Calendar trên điện thoại gửi thông báo.',
+      'Bản tin được cập nhật mỗi khi lịch đổi (lúc bạn mở app). Tắt từng loại thông báo ở tab Giờ ngủ & cài đặt.',
+    ],
+    try: [{ label: 'Mở cài đặt thông báo', view: 'schedule', tab: 'sleep' }] },
 
   { id: 'smart-quick', icon: '📋', title: 'Lịch thông minh: dán lịch nhanh và xoá hàng loạt', intro: 'Thêm cả buổi, cả tuần trong vài giây bằng cách dán văn bản; xoá cả ngày, cả tuần khi cần làm lại.',
     steps: [
@@ -238,6 +262,7 @@ function openGuideSection(id){
 function guideTry(t){
   if (t.tour) return startTour(t.tour);
   if (t.action === 'assistant') return openAssistant();
+  if (t.action === 'focus') return openFocusStart();
   if (t.action === 'checkin') { if (!checkinDue().length) { toast('Hiện chưa có block nào chờ check-in'); return; } return openCheckinModal(); }
   if (t.view) {
     if (t.view === 'planner') state.planner = { level: 'list', goalId: null, phaseId: null };
@@ -342,6 +367,8 @@ const TOURS = {
       body: 'Sau mỗi block, app hỏi Xong, Một phần hay Bỏ (kèm lý do). Mỗi lần mở app sẽ hiện các block chờ check-in. Block bị Bỏ hoặc làm dở được đề xuất xếp bù trong tuần, việc bên trong đi theo block bù.' },
     { go: { view: 'budget' }, target: navBtn('Ngân sách tuần'), title: 'Ngân sách tuần',
       body: 'Giờ đã làm thật so với kế hoạch của từng mục tiêu, xếp theo hạng. Mục tiêu hạng 1 sắp hụt quá 10% thì app cảnh báo.' },
+    { target: () => $('#focusBtn'), title: 'Đồng hồ học',
+      body: 'Bấm ⏱ để bắt đầu học: đồng hồ đếm lên, không ép dừng, tới 50 phút mới hỏi nghỉ hay học tiếp. Phút học thật được cộng vào Ngân sách tuần. Mỗi sáng 06:00 và trước mỗi block 1 tiếng, điện thoại báo qua Google Calendar.' },
     { target: () => $('#aiFab'), title: 'Trợ lý AI',
       body: 'Không chắc phải làm gì? Bấm đây và hỏi bằng lời bình thường, ví dụ "tối nay 18h có họp, xếp giúp mình" hay "block sáng nay mình lỡ thì sao". Trợ lý xem lịch của bạn và chuẩn bị phương án, bạn bấm duyệt.' },
     { target: navBtn('Hướng dẫn sử dụng'), title: 'Xong rồi!',
@@ -357,6 +384,7 @@ const TOURS = {
     { target: navBtn('Danh sách việc'), title: 'Danh sách việc', body: 'Mọi việc trong một bảng: tìm theo tên, lọc theo trạng thái và ưu tiên, sửa, xoá.' },
     { target: navBtn('Ngày đặc biệt'), title: 'Ngày đặc biệt', body: 'Sinh nhật, kỷ niệm. App tạo nhắc hẹn lặp hằng năm trên Google Calendar.' },
     { target: navBtn('Ghi chú vặt'), title: 'Ghi chú vặt', body: 'Những điều nhỏ cần nhớ, có danh mục và ghim.' },
+    { target: () => $('#focusBtn'), title: 'Đồng hồ học', body: 'Bắt đầu một phiên học đo bằng thời gian thật, nghỉ theo kiểu Flowtime.' },
     { target: navBtn('Thống kê'), title: 'Thống kê', body: 'Tỷ lệ hoàn thành chung, theo mức ưu tiên và 7 ngày gần đây.' },
     { target: navBtn('Cài đặt'), title: 'Cài đặt', body: 'Hồ sơ, quyền thông báo trình duyệt, chế độ tối.' },
     { target: () => $('#connStatus'), title: 'Trạng thái lưu', body: '"đã lưu vào Drive" nghĩa là mọi thay đổi đã nằm an toàn trong Google Drive của bạn.' },

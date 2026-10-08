@@ -96,6 +96,9 @@ function assert(c, m) { if (!c) throw new Error('ASSERT FAILED: ' + m); }
   });
 
   await step('Sinh block tuần: block lên Google Calendar có extendedProperties.private, colorId, lưu gcalEventId', async () => {
+    // Kịch bản của spec dùng lịch mẫu chia block 50 phút: bật công tắc trong cài đặt trước khi sinh tuần
+    await page.click('[data-tab="sleep"]');
+    await page.check('#st-split'); await idle(page);
     await page.click('[data-tab="week"]');
     await page.click('#genWeek');
     await idle(page);
@@ -609,6 +612,116 @@ function assert(c, m) { if (!c) throw new Error('ASSERT FAILED: ' + m); }
     assert(await page.isVisible('#loadSeed'), 'lịch khung trống thì hiện lại nút Nạp lịch mẫu');
     await page.click('#undoDelete'); await idle(page);
     assert(G.data().blockTemplates.filter(t => !t.deletedAt).length === 29, 'hoàn tác lịch khung');
+  });
+
+  /* ======================= THÔNG BÁO QUA GOOGLE CALENDAR ======================= */
+  await step('Block trên Google có nhắc trước 1 tiếng và lúc bắt đầu; khung đệm không nhắc', async () => {
+    await page.evaluate(() => { state.settings.reminderVersion = 0; migrateReminders(); });
+    await idle(page);
+    const evs = G.appEvents();
+    const study = evs.find(e => e.extendedProperties.private.gsBlockId === 'tpl-t5-hoc-2026-10-08-1');
+    assert(study && JSON.stringify(study.reminders.overrides) === JSON.stringify([{ method: 'popup', minutes: 60 }, { method: 'popup', minutes: 0 }]), JSON.stringify(study && study.reminders));
+    const buf = evs.find(e => e.extendedProperties.private.gsType === 'buffer');
+    assert(buf && buf.reminders.overrides.length === 0, 'khung đệm không nhắc');
+  });
+
+  await step('Bản tin buổi sáng: mỗi ngày còn lại một sự kiện 06:00, tiêu đề tóm tắt lịch, đổi giờ thì cập nhật', async () => {
+    await page.evaluate(() => scheduleBriefSync());
+    await page.waitForTimeout(3600); await idle(page);
+    let br = G.briefEvents();
+    const days = br.map(e => e.extendedProperties.private.gsBrief).sort();
+    assert(days.includes('2026-10-08') && days.includes('2026-10-09'), 'có bản tin các ngày tới: ' + days.join(','));
+    assert(br.every(e => /T06:00:00\+07:00$/.test(e.start.dateTime)), 'mọi bản tin lúc 06:00');
+    const thu = br.find(e => e.extendedProperties.private.gsBrief === '2026-10-08');
+    assert(thu.start.dateTime === '2026-10-08T06:00:00+07:00' && thu.transparency === 'transparent', JSON.stringify(thu.start));
+    assert(/^☀️ Hôm nay: 6h Lớp Nhập môn CNTT/.test(thu.summary), thu.summary);
+    assert(/Lịch hôm nay:/.test(thu.description));
+    assert(G.data().blocks.every(b => b.source !== 'external' || !/Hôm nay/.test(b.label)), 'bản tin không bị đọc ngược thành lịch bận');
+    await nav(page, 'Lịch thông minh'); await page.click('[data-tab="sleep"]');
+    await page.fill('#st-brieftime', '06:30'); await page.dispatchEvent('#st-brieftime', 'change');
+    await page.waitForTimeout(3600); await idle(page);
+    br = G.briefEvents();
+    assert(br.find(e => e.extendedProperties.private.gsBrief === '2026-10-08').start.dateTime === '2026-10-08T06:30:00+07:00', 'đổi giờ bản tin');
+    assert(br.length === days.length, 'cập nhật chứ không tạo trùng');
+  });
+
+  await step('Việc mới mặc định bật đồng bộ Calendar, nhắc trước 1 ngày và 1 tiếng; deadline vào bản tin', async () => {
+    await nav(page, 'Danh sách việc');
+    await page.click('button:has-text("+ Thêm việc")');
+    assert(await page.isChecked('#modalBody #f-sync'), 'mặc định bật đồng bộ');
+    await page.fill('#modalBody #f-title', 'Nộp bài tập lớn');
+    await page.fill('#modalBody #f-date', '2026-10-09');
+    await page.fill('#modalBody #f-time', '23:00');
+    await page.click('#modalBody #mSave'); await idle(page);
+    const t = G.data().tasks.find(x => x.title === 'Nộp bài tập lớn');
+    const ev = G.cal.events.get(t.calendarEventId);
+    assert(ev && JSON.stringify(ev.reminders.overrides) === JSON.stringify([{ method: 'popup', minutes: 60 }, { method: 'popup', minutes: 1440 }]), JSON.stringify(ev && ev.reminders));
+    await page.waitForTimeout(3600); await idle(page);
+    const fri = G.briefEvents().find(e => e.extendedProperties.private.gsBrief === '2026-10-09');
+    assert(/⏰ 1 deadline/.test(fri.summary) && /Nộp bài tập lớn lúc 23:00/.test(fri.description), fri.summary);
+  });
+
+  /* ======================= ĐỒNG HỒ HỌC FLOWTIME ======================= */
+  await step('Đồng hồ: bắt đầu từ block đang diễn ra, 10 phút khởi động, tới 50 phút mới hỏi, có chuông và thông báo', async () => {
+    await context.clock.setFixedTime(at('2026-10-08T13:15:00+07:00'));
+    await nav(page, 'Lịch thông minh'); await page.click('[data-tab="week"]');
+    await page.click('.blk[data-block-id="tpl-t5-hoc-2026-10-08-1"] button.blk-go');
+    assert(await page.inputValue('#fs-goal') === (await page.evaluate(() => state.goals.find(g => g.title === 'GPA').id)), 'tự chọn mục tiêu của block');
+    await page.fill('#fs-first', 'mở đề GT câu 12');
+    await page.click('#fs-go'); await page.waitForTimeout(1300);
+    assert(await page.isVisible('#focusBar'), 'hiện thanh đồng hồ');
+    assert(/Khởi động/.test(await page.innerText('#fbSub')), 'đang 10 phút khởi động');
+    await context.clock.setFixedTime(at('2026-10-08T14:00:00+07:00')); await page.waitForTimeout(1300);
+    assert(/^45:/.test(await page.innerText('#fbClock')), 'đếm 45 phút: ' + await page.innerText('#fbClock'));
+    assert(!(await page.isVisible('#fbContinue')), 'chưa tới 50 phút thì chưa hỏi');
+    await page.evaluate(() => { window.__notes = []; });
+    await context.clock.setFixedTime(at('2026-10-08T14:05:00+07:00')); await page.waitForTimeout(1300);
+    assert(await page.isVisible('#fbContinue'), 'tới 50 phút thì hỏi nghỉ hay học tiếp');
+    assert(await page.evaluate(() => window.__notes.some(n => /đã học 50 phút/.test(n.title))), 'có thông báo');
+    await page.click('#fbContinue');
+    await context.clock.setFixedTime(at('2026-10-08T14:20:00+07:00')); await page.waitForTimeout(1300);
+    assert(!(await page.isVisible('#fbContinue')), 'học tiếp thì 25 phút sau mới hỏi lại');
+    await context.clock.setFixedTime(at('2026-10-08T14:30:00+07:00')); await page.waitForTimeout(1300);
+    assert(await page.isVisible('#fbDoBreak'), 'hỏi lại ở phút 75');
+    assert(/Nghỉ 15 phút/.test(await page.innerText('#fbDoBreak')), 'nghỉ khoảng 1/5 của 75 phút');
+  });
+
+  await step('Đồng hồ: nghỉ có ghi chú quay lại, hết giờ nghỉ thì báo, quay lại học, kết thúc thì lưu phút học', async () => {
+    await page.fill('#fbNote', 'làm tiếp câu 13b');
+    await page.click('#fbDoBreak'); await page.waitForTimeout(1200);
+    assert(/làm tiếp câu 13b/.test(await page.innerText('#fbSub')), 'hiện ghi chú khi nghỉ');
+    await page.evaluate(() => { window.__notes = []; });
+    await context.clock.setFixedTime(at('2026-10-08T14:46:00+07:00')); await page.waitForTimeout(1300);
+    assert(await page.evaluate(() => window.__notes.some(n => /Hết giờ nghỉ/.test(n.title) && /câu 13b/.test(n.body))), 'báo hết giờ nghỉ kèm việc cần làm');
+    await page.click('#fbResume');
+    await context.clock.setFixedTime(at('2026-10-08T15:01:00+07:00')); await page.waitForTimeout(1300);
+    await page.reload(); await page.waitForFunction(() => state.dataLoaded); await idle(page); await closeAnyModal(page);
+    await page.waitForTimeout(1300);
+    assert(await page.isVisible('#focusBar'), 'tải lại trang đồng hồ vẫn chạy');
+    await page.click('#fbStop'); await idle(page);
+    const ses = G.data().focusSessions;
+    assert(ses.length === 1 && ses[0].minutes === 90 && ses[0].breaks === 1, 'lưu 75 + 15 = 90 phút học thật: ' + JSON.stringify(ses[0] && { m: ses[0].minutes, b: ses[0].breaks }));
+    assert(!G.data().settings.focusRun, 'không còn phiên đang chạy');
+    await nav(page, 'Trang chủ');
+    assert(/1 giờ 30 phút/.test(await page.innerText('#focusCard')), 'thẻ Trang chủ hiện thời gian học hôm nay');
+  });
+
+  await step('Check-in theo đồng hồ và ngân sách tuần cộng phút học thật', async () => {
+    const before = await page.evaluate(() => GSEngine.weekBudget(state.blocks, state.goals, state.checkins, '2026-10-05', nowIso(), smartCtx(), []).find(x => x.title === 'GPA').doneMin);
+    await nav(page, 'Lịch thông minh'); await page.click('[data-tab="week"]');
+    await page.click('.blk[data-block-id="tpl-t5-hoc-2026-10-08-1"] button:has-text("Check-in")');
+    const item = page.locator('.ci-item[data-ci="tpl-t5-hoc-2026-10-08-1"]');
+    const html = await item.evaluate(e => e.innerHTML);
+    assert(/Đồng hồ ghi <strong>50 phút<\/strong> \(100% block\)/.test(html), html.slice(0, 700));
+    await item.locator('button[data-r="focus"]').click(); await idle(page);
+    await closeAnyModal(page);
+    const ck = G.data().checkins.find(c => c.blockId === 'tpl-t5-hoc-2026-10-08-1');
+    assert(ck && ck.result === 'done' && ck.completedRatio === 1 && /theo đồng hồ 50 phút/.test(ck.note), JSON.stringify(ck));
+    const after = await page.evaluate(() => GSEngine.weekBudget(state.blocks, state.goals, state.checkins, '2026-10-05', nowIso(), smartCtx(), focusAllSessions()).find(x => x.title === 'GPA'));
+    assert(after.doneMin - before === 90, 'cộng đúng 90 phút (50 trong block đã check-in + 40 ngoài block), thấy ' + (after.doneMin - before));
+    await nav(page, 'Ngân sách tuần');
+    assert(/đồng hồ/.test(await page.innerText('#views')), 'màn ngân sách ghi rõ phần từ đồng hồ');
+    await context.clock.setFixedTime(at('2026-10-07T16:00:00+07:00'));
   });
 
   await step('Giao diện Lịch thông minh trên điện thoại không tràn ngang', async () => {

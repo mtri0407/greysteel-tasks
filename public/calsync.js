@@ -18,9 +18,12 @@
   const TYPE_ICON = { fixed: '📌', protected: '🛡️', flexible: '🍊', buffer: '⏳' };
   const EXT_PREFIX = 'ext-';
 
-  /* Nội dung sự kiện cho 1 block của app. Không đặt nhắc hẹn popup để khỏi dội thông báo
-     cho vài chục block mỗi tuần (app tự báo khi block kết thúc). */
-  function blockEventBody(block, goals, tz) {
+  /* Nội dung sự kiện cho 1 block của app. Mặc định nhắc trước 60 phút và lúc bắt đầu (Google
+     Calendar trên điện thoại báo kể cả khi không mở app); khung đệm không nhắc.
+     opts.reminders = false thì tắt nhắc. */
+  const REMIND_MINUTES = [60, 0];
+  function blockEventBody(block, goals, tz, opts) {
+    const remind = !(opts && opts.reminders === false) && block.type !== 'buffer';
     const g = (goals || []).find(x => x.id === block.goalId);
     return {
       summary: `${TYPE_ICON[block.type] || '🍊'} ${block.label || 'Block'}`,
@@ -29,7 +32,7 @@
       end: { dateTime: block.end, timeZone: tz },
       colorId: COLOR_BY_TYPE[block.type] || COLOR_BY_TYPE.flexible,
       extendedProperties: { private: { gsApp: APP_MARK, gsBlockId: block.id, gsType: block.type || '', gsGoalId: block.goalId || '' } },
-      reminders: { useDefault: false, overrides: [] },
+      reminders: { useDefault: false, overrides: remind ? REMIND_MINUTES.map(m => ({ method: 'popup', minutes: m })) : [] },
     };
   }
   /* Block nào cần có sự kiện trên Google: block của app còn hiệu lực (sự kiện ngoài thì đã có sẵn) */
@@ -87,6 +90,8 @@
         return;
       }
       if (known.has(ev.id)) return; // sự kiện task / ngày đặc biệt do app tạo theo kiểu cũ
+      const pv = ev.extendedProperties && ev.extendedProperties.private;
+      if (pv && pv.gsApp === APP_MARK) return; // sự kiện khác của app (bản tin buổi sáng): không phải lịch bận
       const id = EXT_PREFIX + ev.id;
       const ex = byId.get(id);
       const timed = ev.start && ev.start.dateTime && ev.end && ev.end.dateTime;
@@ -158,5 +163,53 @@
     return p;
   }
 
-  return { APP_MARK, COLOR_BY_TYPE, blockEventBody, shouldPush, shouldRemove, isAppEvent, processEvents, disruptionForExternal, listParams, hardRuleViolations };
+  /* ---------- Bản tin buổi sáng ----------
+     Mỗi ngày một sự kiện ngắn lúc giờ người dùng chọn (mặc định 06:00), tiêu đề tóm tắt cả ngày để
+     thông báo của Google Calendar trên điện thoại đọc được ngay, mô tả liệt kê đầy đủ block và deadline. */
+  const TYPE_LABEL = { fixed: 'Cố định', protected: 'Bảo vệ', flexible: 'Linh hoạt', buffer: 'Đệm' };
+  function shortTime(hhmm) { const [h, m] = hhmm.split(':'); return Number(h) + 'h' + (m === '00' ? '' : m); }
+  function buildDayBrief(ymd, blocks, tasks, goals, ctx) {
+    const off = Number.isFinite(ctx && ctx.tzOffsetMin) ? ctx.tzOffsetMin : 420;
+    const T = E.time;
+    const s = T.localToMs(ymd, '00:00', off), e = T.localToMs(T.addDaysYmd(ymd, 1), '00:00', off);
+    const gname = id => { const g = (goals || []).find(x => x.id === id); return g ? g.title : ''; };
+    const list = (blocks || []).filter(b => E.isActive(b) && b.type !== 'buffer' && T.parseTime(b.start, off) >= s && T.parseTime(b.start, off) < e)
+      .sort((a, b) => T.parseTime(a.start, off) - T.parseTime(b.start, off));
+    const dl = (tasks || []).filter(t => !t.deletedAt && t.status !== 'done' && (t.dueDate === ymd || t.deadline === ymd));
+    if (!list.length && !dl.length) return null;
+    const hm = iso => T.localParts(T.parseTime(iso, off), off).hhmm;
+    const lab = x => String(x || '').trim();
+    const parts = list.map(b => `${shortTime(hm(b.start))} ${lab(b.label).slice(0, 22)}`);
+    let summary = '☀️ Hôm nay: ';
+    let used = 0;
+    for (const p of parts) { if ((summary + p).length > 110) break; summary += (used ? ' · ' : '') + p; used++; }
+    if (used < parts.length) summary += ` +${parts.length - used}`;
+    if (dl.length) summary += (parts.length ? ' · ' : '') + `⏰ ${dl.length} deadline`;
+    const lines = [];
+    if (list.length) {
+      lines.push('Lịch hôm nay:');
+      list.forEach(b => lines.push(`• ${hm(b.start)} đến ${hm(b.end)}  ${lab(b.label)}${b.goalId ? ' (' + gname(b.goalId) + ')' : ''}  [${TYPE_LABEL[b.type] || b.type}]`));
+    }
+    if (dl.length) {
+      lines.push('', 'Deadline hôm nay:');
+      dl.forEach(t => lines.push(`• ${lab(t.title)}${t.dueTime ? ' lúc ' + t.dueTime : ''}`));
+    }
+    lines.push('', 'Mỗi block sẽ được nhắc trước 1 tiếng và lúc bắt đầu.', 'Tạo bởi Greysteel Tasks (bản tin buổi sáng).');
+    return { ymd, summary, description: lines.join('\n'), blocks: list.length, deadlines: dl.length };
+  }
+  function briefEventBody(brief, timeHHMM, tz, ctx) {
+    const off = Number.isFinite(ctx && ctx.tzOffsetMin) ? ctx.tzOffsetMin : 420;
+    const T = E.time;
+    const st = T.localToMs(brief.ymd, timeHHMM || '06:00', off);
+    return {
+      summary: brief.summary, description: brief.description,
+      start: { dateTime: T.toISO(st, off), timeZone: tz }, end: { dateTime: T.toISO(st + 15 * 60000, off), timeZone: tz },
+      transparency: 'transparent', colorId: '6',
+      extendedProperties: { private: { gsApp: APP_MARK, gsBrief: brief.ymd } },
+      reminders: { useDefault: false, overrides: [{ method: 'popup', minutes: 0 }] },
+    };
+  }
+  function briefSignature(brief, timeHHMM) { return brief ? JSON.stringify([timeHHMM, brief.summary, brief.description]) : ''; }
+
+  return { APP_MARK, COLOR_BY_TYPE, REMIND_MINUTES, blockEventBody, buildDayBrief, briefEventBody, briefSignature, shouldPush, shouldRemove, isAppEvent, processEvents, disruptionForExternal, listParams, hardRuleViolations };
 });

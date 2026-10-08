@@ -16,7 +16,8 @@ let fails = 0, count = 0;
 function t(name, fn) { count++; try { fn(); console.log('OK  ', name); } catch (e) { fails++; console.log('FAIL', name, '\n     ', e.message); } }
 
 const seed = E.founderSeed();
-const ctx = { sleepRules: seed.sleepRules, tzOffsetMin: 420 };
+// Kịch bản nghiệm thu của spec dùng lịch mẫu chia block 50 phút ("Học sâu, 4 block")
+const ctx = { sleepRules: seed.sleepRules, tzOffsetMin: 420, config: { splitTemplates: true } };
 const NOW = '2026-10-05T07:00:00+07:00';
 const base = E.generateWeekBlocks(seed.templates, '2026-10-05', [], NOW, ctx);
 const appEv = (blockId, start, end, etag, extra) => Object.assign({ id: 'g-' + blockId, etag, status: 'confirmed',
@@ -126,6 +127,39 @@ t('Đồng bộ đầy đủ (sau 410): sự kiện ngoài không còn trên Goo
   const r = C.processEvents({ blocks: base.concat([ext]), events: [], fullSync: true, fullSyncFrom: '2026-10-04T00:00:00Z' }, NOW, ctx);
   assert.ok(r.blocks.find(b => b.id === 'ext-gone').deletedAt);
   assert.ok(r.blocks.filter(b => b.source === 'template').every(b => !b.deletedAt), 'không đụng block của app');
+});
+
+/* ---------- Nhắc hẹn và bản tin buổi sáng ---------- */
+t('Block có nhắc trước 1 tiếng và lúc bắt đầu; khung đệm không nhắc; tắt được', () => {
+  const b = base.find(x => x.type === 'flexible');
+  eq(C.blockEventBody(b, seed.goals, 'x').reminders, { useDefault: false, overrides: [{ method: 'popup', minutes: 60 }, { method: 'popup', minutes: 0 }] });
+  eq(C.blockEventBody(base.find(x => x.type === 'buffer'), seed.goals, 'x').reminders.overrides, []);
+  eq(C.blockEventBody(b, seed.goals, 'x', { reminders: false }).reminders.overrides, []);
+});
+t('Bản tin buổi sáng: tiêu đề tóm tắt cả ngày, mô tả đủ block và deadline', () => {
+  const tasks = [{ id: 'a', title: 'Nộp báo cáo Pháp luật', status: 'todo', dueDate: '2026-10-06', dueTime: '23:59' },
+    { id: 'b', title: 'Việc đã xong', status: 'done', dueDate: '2026-10-06' }, { id: 'c', title: 'Bài tập GT', status: 'todo', deadline: '2026-10-06' }];
+  const br = C.buildDayBrief('2026-10-06', base, tasks, seed.goals, ctx);
+  assert.ok(br.summary.startsWith('☀️ Hôm nay: 6h Lớp Giải tích 1'), br.summary);
+  assert.ok(/⏰ 2 deadline/.test(br.summary), 'đếm deadline chưa xong');
+  assert.ok(!/Khung đệm/.test(br.description), 'không liệt kê khung đệm');
+  assert.ok(/06:00 đến 10:10  Lớp Giải tích 1 \(GPA\)  \[Cố định\]/.test(br.description), br.description);
+  assert.ok(/Nộp báo cáo Pháp luật lúc 23:59/.test(br.description) && /Bài tập GT/.test(br.description) && !/Việc đã xong/.test(br.description));
+  assert.ok(br.summary.length <= 140);
+  assert.strictEqual(C.buildDayBrief('2026-10-20', base, [], seed.goals, ctx), null, 'ngày không có gì thì không tạo bản tin');
+});
+t('Sự kiện bản tin: đúng giờ chọn, đánh dấu "rảnh", có dấu của app, báo ngay lúc đó; đọc ngược không thành lịch bận', () => {
+  const br = C.buildDayBrief('2026-10-06', base, [], seed.goals, ctx);
+  const ev = C.briefEventBody(br, '06:00', 'Asia/Ho_Chi_Minh', ctx);
+  assert.strictEqual(ev.start.dateTime, '2026-10-06T06:00:00+07:00');
+  assert.strictEqual(ev.end.dateTime, '2026-10-06T06:15:00+07:00');
+  assert.strictEqual(ev.transparency, 'transparent');
+  eq(ev.extendedProperties.private, { gsApp: 'greysteel', gsBrief: '2026-10-06' });
+  eq(ev.reminders.overrides, [{ method: 'popup', minutes: 0 }]);
+  const r = C.processEvents({ blocks: base, events: [Object.assign({ id: 'brief1', status: 'confirmed', etag: '"x"' }, ev)] }, NOW, ctx);
+  assert.strictEqual(r.blocks.length, base.length, 'không tạo block external từ bản tin');
+  eq(r.conflicts, []);
+  assert.notStrictEqual(C.briefSignature(br, '06:00'), C.briefSignature(br, '06:30'), 'đổi giờ thì phải cập nhật');
 });
 
 console.log(fails === 0 ? `\nTẤT CẢ ${count} TEST CALENDAR PASS` : `\n${fails}/${count} TEST CALENDAR THẤT BẠI`);
