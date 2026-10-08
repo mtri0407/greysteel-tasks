@@ -46,6 +46,17 @@ function assert(c, m) { if (!c) throw new Error('ASSERT FAILED: ' + m); }
     assert(r.start === '2026-10-06T18:00:00+07:00' && r.buffer && r.moved === 0, JSON.stringify(r));
   });
 
+  await step('Dán lịch nhanh trên bản live: đọc đúng "16h-18h30: Học giải tích"', async () => {
+    const r = await page.evaluate(() => GSEngine.parseQuickSchedule('Thứ 6
+16h-18h30: Học giải tích', { defaultDate: '2026-10-08', weekStart: '2026-10-05' }).items[0]);
+    assert(r && r.date === '2026-10-09' && r.start === '16:00' && r.end === '18:30' && r.title === 'Học giải tích', JSON.stringify(r));
+  });
+
+  await step('Function trợ lý AI chặn người chưa đăng nhập', async () => {
+    const r = await context.request.post(BASE + '/.netlify/functions/assistant', { data: { messages: [] } });
+    assert(r.status() === 401, 'status ' + r.status());
+  });
+
   await step('Netlify Function refresh-token vẫn chạy (401 no_session khi chưa đăng nhập)', async () => {
     const r = await context.request.get(BASE + '/.netlify/functions/refresh-token');
     assert(r.status() === 401, 'status ' + r.status());

@@ -29,6 +29,14 @@
   1. Gọi refresh-token khi không có cookie phiên.
 - Kết quả mong đợi: HTTP 401 với `error: "no_session"` (không phải 500).
 
+## Dán lịch nhanh và trợ lý AI
+- URL/trang cần vào: / (gọi hàm trong trang) và /.netlify/functions/assistant
+- Tài khoản dùng test: không cần
+- Các bước kiểm tra:
+  1. Gọi GSEngine.parseQuickSchedule với "Thứ 6" và "16h-18h30: Học giải tích".
+  2. Gọi function assistant khi chưa đăng nhập.
+- Kết quả mong đợi: đọc ra thứ 6, 16:00 đến 18:30, đúng tên việc; function trả 401 (không ai dùng chùa API key).
+
 ## Giao diện điện thoại
 - URL/trang cần vào: /
 - Tài khoản dùng test: không cần
