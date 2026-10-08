@@ -517,6 +517,100 @@ function assert(c, m) { if (!c) throw new Error('ASSERT FAILED: ' + m); }
     assert(!(await page.isVisible('#aiPanel')), 'đóng khung chat');
   });
 
+  /* ======================= DÁN LỊCH NHANH & XOÁ HÀNG LOẠT ======================= */
+  const activeIn = (d, day) => d.blocks.filter(b => !b.deletedAt && b.start.startsWith(day));
+  await step('Dán lịch nhanh: đọc văn bản, xem trước có cảnh báo, bỏ tích dòng, thêm block lên lịch và Google', async () => {
+    await closeAnyModal(page);
+    await nav(page, 'Lịch thông minh');
+    await page.click('[data-tab="week"]');
+    await page.click('#quickAdd');
+    const txt = 'T5\n20h-21h: Học giải tích nhanh\n21h: Gọi điện\nghi chú không có giờ';
+    await page.fill('#qa-text', txt);
+    await page.waitForTimeout(500);
+    assert(await page.locator('.qa-row').count() === 2, 'đọc được 2 dòng');
+    const prev = await page.innerText('#qa-preview');
+    assert(/T5 08\/10 20:00 - 21:00/.test(prev) && /Học giải tích nhanh/.test(prev), prev.slice(0, 200));
+    assert(/tạm tính 60 phút/.test(prev), 'cảnh báo dòng thiếu giờ kết thúc');
+    assert(/Không đọc được giờ ở 1 dòng/.test(prev), 'báo dòng không đọc được');
+    assert(await page.inputValue('#qa-text') === txt, 'ô văn bản giữ nguyên chữ (không vẽ lại khi gõ)');
+    await page.locator('.qa-row[data-ln="3"] .qa-on').uncheck();
+    await page.waitForTimeout(200);
+    assert(/Thêm 1 block/.test(await page.innerText('#qa-add')));
+    await page.click('#qa-add'); await idle(page);
+    const d = G.data();
+    const b = d.blocks.find(x => x.label === 'Học giải tích nhanh');
+    assert(b && b.start === '2026-10-08T20:00:00+07:00' && b.end === '2026-10-08T21:00:00+07:00' && b.source === 'manual' && b.energy === 'light', JSON.stringify(b));
+    assert(b.gcalEventId, 'block mới lên Google Calendar');
+    assert(!d.blocks.some(x => x.label === 'Gọi điện' && x.source === 'manual'), 'dòng đã bỏ tích không được thêm');
+  });
+
+  await step('Dán vào lịch khung: các dòng thành block mẫu theo thứ', async () => {
+    await page.click('[data-tab="templates"]');
+    const before = (await page.evaluate(() => state.blockTemplates.filter(t => !t.deletedAt).length));
+    await page.click('#quickAddTpl');
+    assert(await page.inputValue('#qa-target') === 'template');
+    await page.fill('#qa-text', 'CN\n14h-15h: Ôn tuần\nThứ 2: 6h-6h30 Chạy bộ');
+    await page.waitForTimeout(450);
+    await page.selectOption('#qa-type', 'protected');
+    await page.waitForTimeout(200);
+    await page.click('#qa-add'); await idle(page);
+    const t = G.data().blockTemplates.filter(x => !x.deletedAt);
+    assert(t.length === before + 2, 'thêm 2 block mẫu');
+    const on = t.find(x => x.label === 'Ôn tuần'), run = t.find(x => x.label === 'Chạy bộ');
+    assert(on.weekday === 0 && on.start === '14:00' && on.type === 'protected', JSON.stringify(on));
+    assert(run.weekday === 1 && run.end === '06:30');
+  });
+
+  await step('Xoá cả ngày có xác nhận, xoá luôn sự kiện Google, giữ sự kiện tự tạo trên Google; Hoàn tác khôi phục đủ', async () => {
+    await page.click('[data-tab="week"]');
+    const evBefore = G.appEvents().length;
+    const nThu = activeIn(G.data(), '2026-10-08').filter(b => b.source !== 'external').length;
+    await page.click('.day-del[data-day="2026-10-08"]');
+    assert(/Xoá \d+ block của T5 08\/10/.test(await page.innerText('#modalBody')), 'hộp thoại xác nhận nêu rõ số block');
+    assert(/sự kiện bạn tạo trên Google được giữ nguyên/.test(await page.innerText('#modalBody')));
+    await page.click('#cf-yes'); await idle(page);
+    let d = G.data();
+    assert(activeIn(d, '2026-10-08').every(b => b.source === 'external'), 'chỉ còn sự kiện Google tự tạo');
+    assert(G.appEvents().length === evBefore - nThu, `xoá đúng ${nThu} sự kiện trên Google`);
+    assert(await page.isVisible('#undoBanner'));
+    await page.click('#undoDelete'); await idle(page);
+    d = G.data();
+    assert(activeIn(d, '2026-10-08').filter(b => b.source !== 'external').length === nThu, 'hoàn tác khôi phục đủ block');
+    assert(G.appEvents().length === evBefore, 'hoàn tác tạo lại sự kiện Google');
+  });
+
+  await step('Xoá cả tuần rồi Sinh block tuần này: block mẫu được tạo lại, block tự thêm vẫn đã xoá', async () => {
+    await page.click('#clearWeek');
+    await page.click('#cf-yes'); await idle(page);
+    let d = G.data();
+    const live = d.blocks.filter(b => !b.deletedAt && b.start >= '2026-10-05' && b.start < '2026-10-12' && b.source !== 'external');
+    assert(live.length === 0, 'tuần đã trống, còn ' + live.length);
+    await page.click('#genWeek'); await idle(page);
+    d = G.data();
+    const tpl = d.blocks.filter(b => !b.deletedAt && b.source === 'template' && b.start >= '2026-10-05' && b.start < '2026-10-12');
+    assert(tpl.length === 41, 'sinh lại 39 block mẫu cũ và 2 block mẫu vừa dán, thấy ' + tpl.length);
+    assert(tpl.every(b => b.status === 'planned' && b.gcalEventId), 'block sinh lại sạch và có trên Google');
+    assert(!d.blocks.some(b => !b.deletedAt && b.label === 'Học giải tích nhanh'), 'block dán tay không tự quay lại');
+    const ids = d.blocks.map(b => b.id);
+    assert(new Set(ids).size === ids.length, 'không có id trùng sau khi sinh lại');
+  });
+
+  await step('Làm lại từ đầu: xoá tất cả block mọi tuần và xoá toàn bộ lịch khung, đều hoàn tác được', async () => {
+    await page.click('[data-tab="sleep"]');
+    await page.click('#clearAllBlocks');
+    await page.click('#cf-yes'); await idle(page);
+    assert(G.data().blocks.filter(b => !b.deletedAt && b.source !== 'external').length === 0, 'không còn block nào của app');
+    await page.click('#undoDelete'); await idle(page);
+    assert(G.data().blocks.filter(b => !b.deletedAt && b.source === 'template').length >= 41, 'hoàn tác xoá tất cả');
+    await page.click('[data-tab="templates"]');
+    await page.click('#clearTemplates');
+    await page.click('#cf-yes'); await idle(page);
+    assert(G.data().blockTemplates.every(t => t.deletedAt), 'lịch khung đã xoá hết');
+    assert(await page.isVisible('#loadSeed'), 'lịch khung trống thì hiện lại nút Nạp lịch mẫu');
+    await page.click('#undoDelete'); await idle(page);
+    assert(G.data().blockTemplates.filter(t => !t.deletedAt).length === 29, 'hoàn tác lịch khung');
+  });
+
   await step('Giao diện Lịch thông minh trên điện thoại không tràn ngang', async () => {
     const m = await context.newPage(); watch(m);
     await m.setViewportSize({ width: 390, height: 844 });

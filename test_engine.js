@@ -258,6 +258,50 @@ t('Xếp bù: hết chỗ trong tuần thì báo số phút không xếp đượ
   assert.strictEqual(mk.unplacedMin, mk.missedMin);
 });
 
+/* ======================= Dán lịch nhanh ======================= */
+t('Dán lịch nhanh: đọc đúng nhiều kiểu viết giờ', () => {
+  const r = E.parseQuickSchedule([
+    '16h-18h30: Học giải tích',
+    '7:00 - 9:15 Ôn đại số',
+    '- 7-9h Gym',
+    '1. 19h30 đến 21h | Sổ lỗi',
+    '20h: Gọi điện cho mẹ',
+    '23h-1h Code đồ án',
+    'ghi chú linh tinh không có giờ',
+  ].join('\n'), { defaultDate: '2026-10-08', weekStart: '2026-10-05' });
+  eq(r.items.map(x => [x.start, x.end, x.title, x.date]), [
+    ['16:00', '18:30', 'Học giải tích', '2026-10-08'],
+    ['07:00', '09:15', 'Ôn đại số', '2026-10-08'],
+    ['07:00', '09:00', 'Gym', '2026-10-08'],
+    ['19:30', '21:00', 'Sổ lỗi', '2026-10-08'],
+    ['20:00', '21:00', 'Gọi điện cho mẹ', '2026-10-08'],
+    ['23:00', '01:00', 'Code đồ án', '2026-10-08'],
+  ]);
+  assert.strictEqual(r.items[4].assumedEnd, true, 'chỉ có giờ bắt đầu thì đánh dấu tự thêm 60 phút');
+  assert.strictEqual(r.items[5].endNextDay, true, '23h-1h kết thúc hôm sau');
+  eq(r.skipped.map(x => x.lineNo), [7]);
+});
+t('Dán lịch nhanh: tiêu đề thứ và ngày đổi ngày cho các dòng sau, kể cả chung dòng', () => {
+  const r = E.parseQuickSchedule([
+    'Thứ 2', '8h-10h Học sâu',
+    'T4: 13h30-15h GT còn tồn',
+    'Thứ sáu:', '9h-11h Họp',
+    'CN 8h-10h45 Việc nhẹ',
+    'Chủ nhật', '20h-21h Lên kế hoạch tuần',
+    '15/10', '7h-8h Chạy bộ',
+  ].join('\n'), { defaultDate: '2026-10-08', weekStart: '2026-10-05' });
+  eq(r.items.map(x => [x.date, x.weekday, x.title]), [
+    ['2026-10-05', 1, 'Học sâu'], ['2026-10-07', 3, 'GT còn tồn'], ['2026-10-09', 5, 'Họp'],
+    ['2026-10-11', 0, 'Việc nhẹ'], ['2026-10-11', 0, 'Lên kế hoạch tuần'], ['2026-10-15', 4, 'Chạy bộ'],
+  ]);
+  eq(r.skipped, []);
+});
+t('Dán lịch nhanh: giờ sai thì bỏ qua và báo dòng, không đoán bừa', () => {
+  const r = E.parseQuickSchedule('25h-26h Sai giờ\n10h70-11h Sai phút\n9h-10h Đúng', { defaultDate: '2026-10-08' });
+  eq(r.items.map(x => x.title), ['Đúng']);
+  eq(r.skipped.map(x => x.lineNo), [1, 2]);
+});
+
 /* ======================= Luật cứng ======================= */
 t('Luật cứng: không đặt việc vào giờ ngủ (giờ cố định)', () => {
   const d = { id: 'x', durationMin: 30, priority: 1, mode: 'fixed_time', fixedStart: '2026-10-06T22:30:00+07:00' };

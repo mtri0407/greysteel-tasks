@@ -7,7 +7,7 @@
    lúc được gọi, nên phải nạp TRƯỚC script chính.
    Khi màn hình nào đổi, sửa luôn nội dung ở đây và TĂNG GUIDE_VERSION để tour được mời xem lại. */
 
-const GUIDE_VERSION = 2; // 2: thêm Trợ lý AI và Xếp bù
+const GUIDE_VERSION = 3; // 2: Trợ lý AI, Xếp bù; 3: Dán lịch nhanh, Xoá hàng loạt
 
 /* ---------- Nội dung trang hướng dẫn ----------
    Mỗi mục: id, icon, title, intro, steps (danh sách bước), tips (mẹo), try (nút làm thử). */
@@ -78,6 +78,21 @@ const GUIDE_SECTIONS = [
     tips: ['Sửa lịch khung không đổi các tuần đã sinh. Sửa một block trong tuần cũng không đổi lịch khung.',
       'Block được ghi lên Google Calendar với màu theo loại để bạn xem trên điện thoại. Không muốn thì tắt ở tab Giờ ngủ & cài đặt.'],
     try: [{ label: 'Mở Lịch khung', view: 'schedule', tab: 'templates' }, { label: 'Mở Giờ ngủ', view: 'schedule', tab: 'sleep' }] },
+
+  { id: 'smart-quick', icon: '📋', title: 'Lịch thông minh: dán lịch nhanh và xoá hàng loạt', intro: 'Thêm cả buổi, cả tuần trong vài giây bằng cách dán văn bản; xoá cả ngày, cả tuần khi cần làm lại.',
+    steps: [
+      'Ở tab Tuần, bấm "📋 Dán lịch nhanh". Dán hoặc gõ mỗi dòng một việc theo dạng giờ bắt đầu - giờ kết thúc: tên việc, ví dụ "16h-18h30: Học giải tích", "7:00 - 9:15 Ôn đại số", "7-9h Gym".',
+      'Muốn thêm cho nhiều ngày: thêm dòng "Thứ 2", "T3", "Thứ sáu", "CN" hoặc ngày "15/10" phía trên các dòng của ngày đó. Có thể ghi chung dòng: "T4: 13h30-15h GT còn tồn". Dòng không ghi thứ thì vào ngày bạn chọn ở ô "Dòng không ghi thứ thì thêm vào".',
+      'Phần Xem trước hiện từng dòng app đọc được, kèm cảnh báo nếu chồng block khác hoặc chồng giờ ngủ. Bỏ tích dòng không muốn thêm; chọn loại và mục tiêu cho từng dòng nếu cần (hoặc đặt loại, mục tiêu mặc định cho tất cả).',
+      'Bấm "Thêm N block". Các thông tin khác (năng lượng, việc bên trong...) sửa sau bằng nút Sửa trên từng block.',
+      'Muốn lặp lại mỗi tuần: ở tab Lịch khung bấm "📋 Dán vào lịch khung" (hoặc chọn "Lịch khung" ở ô Thêm vào), các dòng sẽ thành block mẫu.',
+      'Xoá cả một ngày: bấm 🗑 cạnh tên ngày ở tab Tuần. Xoá cả tuần: bấm "🗑 Xoá cả tuần". Xoá toàn bộ lịch khung: ở tab Lịch khung. Xoá tất cả block ở mọi tuần: tab Giờ ngủ & cài đặt, mục Làm lại từ đầu.',
+      'Sau khi xoá, đầu trang hiện "Hoàn tác" để khôi phục ngay nếu lỡ tay. Sự kiện tương ứng trên Google Calendar cũng được xoá rồi tạo lại khi hoàn tác.',
+      'Đã xoá cả tuần mà muốn sinh lại từ lịch khung: bấm "Sinh block tuần này từ lịch khung". App không tự sinh lại tuần bạn vừa xoá.',
+    ],
+    tips: ['Dòng chỉ có giờ bắt đầu (ví dụ "20h: Gọi điện") được tạm tính 60 phút và có cảnh báo để bạn kiểm tra.',
+      'Sự kiện bạn tự tạo trên Google Calendar không xoá được từ app (lần đồng bộ sau sẽ lại về), hãy xoá trên Google.'],
+    try: [{ label: 'Mở Dán lịch nhanh', view: 'schedule', tab: 'week', action: 'quick' }] },
 
   { id: 'smart-disruption', icon: '⚡', title: 'Lịch thông minh: xử lý việc phát sinh', intro: 'Có việc đột xuất, app đề xuất cách xếp lại, bạn quyết định. App không bao giờ tự sửa lịch.',
     steps: [
@@ -230,6 +245,7 @@ function guideTry(t){
     state.view = t.view; renderAll();
   }
   if (t.action === 'disruption') setTimeout(() => openDisruptionModal(), 350);
+  if (t.action === 'quick') setTimeout(() => openQuickAddModal('week'), 350);
 }
 function openGuide(sectionId){
   state.view = 'guide'; renderAll();
@@ -316,8 +332,10 @@ const TOURS = {
       body: 'Điền giờ ngủ cho từng đêm. Đây là luật cứng: engine không bao giờ xếp việc vào giờ ngủ. Bên dưới có công tắc đồng bộ Google Calendar.' },
     { go: { view: 'schedule', tab: 'week' }, target: () => $('#genWeek'), title: 'Bước 4: sinh block tuần',
       body: 'Bấm một lần để tạo block thật cho tuần này từ lịch khung. Sau đó mỗi Chủ nhật app tự sinh tuần tới. Block cũng hiện trên Google Calendar với màu theo loại.' },
+    { target: () => $('#quickAdd'), title: 'Dán lịch nhanh',
+      body: 'Có sẵn lịch trong ghi chú? Dán vào đây theo dạng "16h-18h30: Học giải tích", mỗi dòng một việc, có thể thêm dòng "Thứ 2", "T3"... App đọc và cho xem trước rồi mới thêm.' },
     { target: () => $('.week-grid') || $('#views .empty'), title: 'Lịch tuần',
-      body: 'Mỗi cột là một ngày. Viền màu cho biết loại block: xám cố định, đỏ bảo vệ, xanh linh hoạt, vàng sọc là đệm. Trên mỗi block có nút Check-in, Gán việc, Sửa, Xoá.' },
+      body: 'Mỗi cột là một ngày. Viền màu cho biết loại block: xám cố định, đỏ bảo vệ, xanh linh hoạt, vàng sọc là đệm. Trên mỗi block có nút Check-in, Gán việc, Sửa, Xoá. Nút 🗑 cạnh tên ngày xoá cả ngày, có Hoàn tác.' },
     { target: () => $('#addDisruption'), title: 'Bước 5: việc phát sinh',
       body: 'Có việc đột xuất thì bấm đây: nhập thời lượng, ưu tiên, giờ cố định hoặc khung linh hoạt. App đưa phương án: việc mới nằm đâu, block nào bị dời, block nào bị mất, ngân sách trước và sau. Bạn bấm Duyệt, Sửa hoặc Bỏ.' },
     { target: () => $('#smartChecklist') || $('#openCheckin'), title: 'Bước 6: check-in',

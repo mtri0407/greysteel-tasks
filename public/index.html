@@ -274,6 +274,17 @@
   .ci-item{border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;margin-top:10px;}
   .ci-item .ci-btns{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
   .tbl-wrap{overflow-x:auto;}
+  .day-head{display:flex;align-items:center;justify-content:space-between;gap:6px;}
+  .day-del{border:none;background:none;font-size:13px;opacity:.55;padding:2px 4px;border-radius:6px;cursor:pointer;}
+  .day-del:hover{opacity:1;background:#fdeceb;}
+  .modal:has(#qa-text){max-width:680px;}
+  .qa-preview{margin-top:6px;}
+  .qa-row{display:grid;grid-template-columns:auto 1fr auto auto;gap:6px;align-items:center;padding:7px 0;border-bottom:1px dashed var(--border);font-size:12.5px;}
+  .qa-row.off{opacity:.45;}
+  .qa-row select{margin:0;padding:4px 6px;font-size:12px;max-width:130px;}
+  .qa-warn{color:var(--danger);font-size:11.5px;margin-top:2px;}
+  .qa-skip{font-size:12px;color:var(--text-soft);margin-top:8px;}
+  @media(max-width:600px){.qa-row{grid-template-columns:auto 1fr;} .qa-row select{grid-column:2;max-width:none;}}
 
   /* ---------- Hướng dẫn sử dụng & tour ---------- */
   .guide-toc{display:flex;flex-wrap:wrap;gap:6px;margin:16px 0;}
@@ -2414,9 +2425,14 @@ function rejectProposal(d, p){
 
 /* ---------- Lịch khung -> block thật ---------- */
 function generateWeek(wk, silent){
-  const nb=GSEngine.generateWeekBlocks(state.blockTemplates, wk, state.blocks, nowIso(), smartCtx());
+  /* Chỉ coi block còn hiệu lực là "đã có": tuần đã bị xoá thì bấm Sinh block sẽ tạo lại.
+     (Tự sinh mỗi Chủ nhật vẫn coi block đã xoá là "đã có" để không hồi sinh thứ người dùng vừa xoá.) */
+  const nb=GSEngine.generateWeekBlocks(state.blockTemplates, wk, state.blocks.filter(b=>!b.deletedAt), nowIso(), smartCtx());
   if(!nb.length){ if(!silent) toast('Tuần này đã có đủ block từ lịch khung'); return 0; }
-  state.blocks.push(...nb);
+  nb.forEach(b=>{
+    const i=state.blocks.findIndex(x=>x.id===b.id);
+    if(i>=0){ b.gcalEventId=state.blocks[i].gcalEventId||''; state.blocks[i]=b; } else state.blocks.push(b);
+  });
   logChanges(nb.map(b=>mkChange(b.id, 'create', null, pickB(b), 'template', b.templateId)));
   scheduleSave();
   syncBlocksOut(nb.map(b=>b.id));
@@ -2542,6 +2558,7 @@ function useBuffer(buf, choice){
 function RENDER_SCHEDULE(){
   const wrap=el('div');
   wrap.appendChild(renderSmartBanners());
+  wrap.appendChild(undoBanner());
   wrap.appendChild(smartChecklistCard(false));
   const tabs=el('div','sch-tabs');
   [['week','🗓️ Tuần'],['templates','🧩 Lịch khung'],['sleep','😴 Giờ ngủ & cài đặt']].forEach(([id,l])=>{
@@ -2576,7 +2593,10 @@ function renderWeek(){
   const gen=el('button','btn btn-ghost','Sinh block tuần này từ lịch khung'); gen.id='genWeek';
   gen.onclick=()=>{ if(!state.blockTemplates.some(t=>!t.deletedAt)){ toast('Chưa có lịch khung, vào tab Lịch khung để tạo'); return; } generateWeek(wk); softRefresh(); };
   const addB=el('button','btn btn-ghost','+ Thêm block'); addB.onclick=()=>openBlockModal(null, wk);
-  acts.append(addD, gen, addB);
+  const qa=el('button','btn btn-ghost','📋 Dán lịch nhanh'); qa.id='quickAdd'; qa.onclick=()=>openQuickAddModal('week', wk);
+  const clr=el('button','btn btn-danger','🗑 Xoá cả tuần'); clr.id='clearWeek';
+  clr.onclick=()=>askBulkDelete(blocksOfWeek(wk), `tuần ${fmtDate(wk).slice(0,5)} đến ${fmtDate(GSEngine.time.addDaysYmd(wk,6)).slice(0,5)}`);
+  acts.append(addD, qa, gen, addB, clr);
   wrap.appendChild(acts);
 
   const blocks=blocksOfWeek(wk);
@@ -2587,8 +2607,14 @@ function renderWeek(){
     const day=GSEngine.time.addDaysYmd(wk,i);
     const col=el('div','day-col'+(day===today?' today':''));
     col.dataset.day=day;
-    col.innerHTML=`<h4>${WEEKDAYS[(i+1)%7]} · ${fmtDate(day).slice(0,5)}</h4>`;
     const list=blocks.filter(b=>ymdOf(b.start)===day);
+    const h=el('h4','day-head', `<span>${WEEKDAYS[(i+1)%7]} · ${fmtDate(day).slice(0,5)}</span>`);
+    if(list.some(isBulkDeletable)){
+      const dd=el('button','day-del','🗑'); dd.title='Xoá các block của ngày này'; dd.dataset.day=day;
+      dd.onclick=()=>askBulkDelete(list, `${WEEKDAYS[(i+1)%7]} ${fmtDate(day).slice(0,5)}`);
+      h.appendChild(dd);
+    }
+    col.appendChild(h);
     list.forEach(b=>col.appendChild(blockCard(b, conflictIds.has(b.id))));
     if(!list.length) col.appendChild(el('div','subtle','Trống'));
     grid.appendChild(col);
@@ -2640,6 +2666,169 @@ function deleteBlock(id){
   state.tasks.forEach(t=>{ if(t.blockId===id){ t.lastBlockId=id; t.blockId=''; t.updatedAt=new Date().toISOString(); } });
   logChanges([mkChange(id,'delete',pickB(before),null,'user_edit')]);
   scheduleSave(); syncBlocksOut([id]);
+}
+/* ---------- Xoá hàng loạt (có hoàn tác) ----------
+   Xoá mềm (deletedAt), xoá luôn sự kiện tương ứng trên Google Calendar, việc bên trong quay về hàng chờ.
+   Sự kiện người dùng tự tạo trên Google (source external) không xoá được từ đây vì lần đồng bộ sau sẽ lại về. */
+function isBulkDeletable(b){ return !!b && !b.deletedAt && b.source!=='external'; }
+function askBulkDelete(list, scopeLabel){
+  const del=list.filter(isBulkDeletable);
+  const ext=list.filter(b=>!b.deletedAt && b.source==='external').length;
+  if(!del.length){ toast(ext?'Chỉ còn sự kiện từ Google Calendar, hãy xoá trên Google':'Không có block nào để xoá'); return; }
+  const checked=del.filter(b=>state.checkins.some(c=>c.blockId===b.id)).length;
+  confirmDelete(`Xoá ${del.length} block của ${scopeLabel}? Sự kiện tương ứng trên Google Calendar cũng bị xoá, việc bên trong quay về hàng chờ.`+
+    (checked?` ${checked} block đã check-in sẽ không còn tính vào Ngân sách tuần.`:'')+
+    (ext?` ${ext} sự kiện bạn tạo trên Google được giữ nguyên.`:'')+' Bạn có thể bấm Hoàn tác ngay sau đó.',
+    async()=>{ bulkDeleteBlocks(del.map(b=>b.id), scopeLabel); softRefresh(); toast(`Đã xoá ${del.length} block`); });
+}
+function bulkDeleteBlocks(ids, scopeLabel){
+  const set=new Set(ids);
+  const snap={kind:'blocks', ids:[], tasks:[], label:scopeLabel, at:Date.now()};
+  state.blocks=state.blocks.map(b=>{
+    if(!set.has(b.id) || b.deletedAt) return b;
+    snap.ids.push(b.id);
+    return GSData.softDelete(b, nowIso());
+  });
+  state.tasks.forEach(t=>{ if(t.blockId && set.has(t.blockId)){ snap.tasks.push({id:t.id, blockId:t.blockId}); t.lastBlockId=t.blockId; t.blockId=''; t.updatedAt=new Date().toISOString(); } });
+  logChanges(snap.ids.map(id=>mkChange(id,'delete',null,null,'user_edit','bulk:'+scopeLabel)));
+  state.schedule.lastDeleted=snap;
+  scheduleSave(); syncBlocksOut(snap.ids);
+}
+function askClearTemplates(){
+  const tpls=state.blockTemplates.filter(t=>!t.deletedAt);
+  if(!tpls.length){ toast('Lịch khung đang trống'); return; }
+  confirmDelete(`Xoá toàn bộ ${tpls.length} block mẫu của lịch khung? Các tuần đã sinh không bị ảnh hưởng (muốn xoá thì dùng Xoá cả tuần). Bạn có thể bấm Hoàn tác ngay sau đó.`, async()=>{
+    const ids=tpls.map(t=>t.id); const set=new Set(ids);
+    state.blockTemplates=state.blockTemplates.map(t=>set.has(t.id)?GSData.softDelete(t, nowIso()):t);
+    logChanges(ids.map(id=>mkChange(id,'delete',null,null,'user_edit','bulk:templates','blockTemplate')));
+    state.schedule.lastDeleted={kind:'templates', ids, label:'lịch khung', at:Date.now()};
+    scheduleSave(); softRefresh(); toast(`Đã xoá ${ids.length} block mẫu`);
+  });
+}
+function undoBulkDelete(){
+  const s=state.schedule.lastDeleted; if(!s) return;
+  const set=new Set(s.ids);
+  const revive=x=>{ const n=Object.assign({}, x, {updatedAt:nowIso()}); delete n.deletedAt; return n; };
+  if(s.kind==='templates') state.blockTemplates=state.blockTemplates.map(t=>set.has(t.id)?revive(t):t);
+  else{
+    state.blocks=state.blocks.map(b=>set.has(b.id)?revive(b):b);
+    (s.tasks||[]).forEach(x=>{ const t=state.tasks.find(y=>y.id===x.id); if(t && !t.blockId){ t.blockId=x.blockId; t.updatedAt=new Date().toISOString(); } });
+    syncBlocksOut(s.ids); // tạo lại sự kiện Google nếu đã bị xoá
+  }
+  logChanges(s.ids.map(id=>mkChange(id,'restore',null,null,'user_edit','undo:'+s.label, s.kind==='templates'?'blockTemplate':'block')));
+  state.schedule.lastDeleted=null;
+  scheduleSave(); softRefresh(); toast('Đã hoàn tác ↩️');
+}
+function undoBanner(){
+  const box=el('div'); const s=state.schedule.lastDeleted;
+  if(!s || Date.now()-s.at>30*60000) return box;
+  const b=el('div','banner'); b.id='undoBanner';
+  b.innerHTML=`🗑 Đã xoá <strong>${s.ids.length}</strong> ${s.kind==='templates'?'block mẫu':'block'} (${esc(s.label)}). `;
+  const u=el('button','btn btn-primary btn-sm','↩️ Hoàn tác'); u.id='undoDelete'; u.onclick=undoBulkDelete;
+  const x=el('button','btn btn-ghost btn-sm','Đóng'); x.style.marginLeft='6px'; x.onclick=()=>{ state.schedule.lastDeleted=null; softRefresh(); };
+  b.append(u, x); box.appendChild(b);
+  return box;
+}
+
+/* ---------- Dán lịch nhanh ----------
+   Dán văn bản dạng "16h-18h30: Học giải tích" (mỗi dòng một việc, có thể có dòng "Thứ 2", "T3", "CN"...).
+   Xem trước, chỉnh loại / mục tiêu từng dòng, rồi mới thêm. Thông tin khác sửa sau trên từng block. */
+function openQuickAddModal(mode, wk){
+  wk=wk||state.schedule.weekStart||currentWeekYmd();
+  const today=todayStr();
+  const inWeek=today>=wk && today<GSEngine.time.addDaysYmd(wk,7);
+  const body=$('#modalBody');
+  const over={};   // chỉnh riêng từng dòng: {lineNo: {skip, type, goalId}}
+  body.innerHTML=`<h2>Dán lịch nhanh 📋</h2>
+    <p class="subtle">Mỗi dòng một việc: <strong>giờ bắt đầu - giờ kết thúc: tên việc</strong>, ví dụ <code>16h-18h30: Học giải tích</code>. Có thể thêm dòng <code>Thứ 2</code>, <code>T3</code>, <code>CN</code> hoặc ngày <code>15/10</code> để đổi ngày cho các dòng bên dưới. Loại, mục tiêu và các thông tin khác sửa sau trên từng block.</p>
+    <div class="field-row">
+      <div><label>Thêm vào</label><select id="qa-target">
+        <option value="week" ${mode!=='template'?'selected':''}>Tuần ${fmtDate(wk).slice(0,5)} đến ${fmtDate(GSEngine.time.addDaysYmd(wk,6)).slice(0,5)}</option>
+        <option value="template" ${mode==='template'?'selected':''}>Lịch khung (lặp lại mỗi tuần)</option></select></div>
+      <div><label>Dòng không ghi thứ thì thêm vào</label><input type="date" id="qa-date" value="${inWeek?today:wk}"></div>
+    </div>
+    <label>Văn bản</label>
+    <textarea id="qa-text" rows="7" placeholder="Thứ 5\n7h-9h: Ôn đại số\n16h-18h30: Học giải tích\n20h-21h: Sổ lỗi"></textarea>
+    <div class="field-row">
+      <div><label>Loại mặc định</label><select id="qa-type">${typeOptions('flexible')}</select></div>
+      <div><label>Mục tiêu mặc định</label><select id="qa-goal">${goalOptions('')}</select></div>
+      <div><label>Năng lượng</label><select id="qa-energy"><option value="auto" selected>Tự theo giờ (trước 17h sâu)</option>${energyOptions('-')}</select></div>
+    </div>
+    <div id="qa-preview" class="qa-preview"></div>
+    <div class="modal-actions"><button class="btn btn-ghost" id="mCancel">Huỷ</button><button class="btn btn-primary" id="qa-add" disabled>Thêm</button></div>`;
+  $('#modalBg').classList.add('show');
+  const read=()=>{
+    const target=$m('#qa-target').value;
+    const d=$m('#qa-date').value||(inWeek?today:wk);
+    const r=GSEngine.parseQuickSchedule($m('#qa-text').value, {defaultDate:d, weekStart: target==='week'?wk:GSEngine.time.weekStartYmd(GSEngine.time.localToMs(d,'12:00',tzOff()), tzOff())});
+    return {target, r, defType:$m('#qa-type').value, defGoal:$m('#qa-goal').value, energy:$m('#qa-energy').value};
+  };
+  const rowsOf=(cur)=>cur.r.items.map(it=>{
+    const o=over[it.lineNo]||{};
+    const start=isoAt(it.date, it.start), end=isoAt(it.endNextDay?GSEngine.time.addDaysYmd(it.date,1):it.date, it.end);
+    const type=o.type||cur.defType, goalId=o.goalId!==undefined?o.goalId:cur.defGoal;
+    const energy=cur.energy==='auto' ? (['fixed','buffer'].includes(type)?'':(Number(it.start.slice(0,2))<17?'deep':'light')) : cur.energy;
+    return {it, skip:!!o.skip, start, end, type, goalId, energy};
+  });
+  /* Chỉ vẽ lại vùng xem trước, KHÔNG đụng tới ô văn bản (bộ gõ tiếng Việt) */
+  const preview=()=>{
+    const cur=read(); const rows=rowsOf(cur);
+    const box=$m('#qa-preview'); if(!box) return;
+    if(!rows.length && !cur.r.skipped.length){ box.innerHTML=''; $m('#qa-add').disabled=true; $m('#qa-add').textContent='Thêm'; return; }
+    const active=state.blocks.filter(b=>!b.deletedAt && GSEngine.isActive(b));
+    const sleeps=GSEngine.time.sleepIntervals(state.settings.sleepRules||[], Date.now()-30*86400000, Date.now()+400*86400000, tzOff());
+    box.innerHTML=`<h3 style="margin:12px 0 6px;font-size:14px;">Xem trước (${rows.length} dòng đọc được)</h3>`+
+      rows.map(x=>{
+        const warns=[];
+        if(x.it.assumedEnd) warns.push('chưa ghi giờ kết thúc, tạm tính 60 phút');
+        if(cur.target==='week'){
+          const s=tms(x.start), e=tms(x.end);
+          const hit=active.filter(b=>b.type!=='buffer' && tms(b.start)<e && s<tms(b.end));
+          if(hit.length) warns.push('chồng '+hit.slice(0,2).map(b=>'"'+esc(b.label)+'"').join(', ')+(hit.length>2?' và '+(hit.length-2)+' block khác':''));
+          if(sleeps.some(z=>z.s<e && s<z.e)) warns.push('chồng giờ ngủ');
+        }
+        const when=cur.target==='week' ? `${WEEKDAYS[x.it.weekday]} ${fmtDate(x.it.date).slice(0,5)}` : WEEKDAYS[x.it.weekday];
+        return `<div class="qa-row${x.skip?' off':''}" data-ln="${x.it.lineNo}">
+          <label class="qa-check"><input type="checkbox" class="qa-on" ${x.skip?'':'checked'}></label>
+          <div class="qa-main"><div><strong>${when} ${x.it.start} - ${x.it.end}${x.it.endNextDay?' (hôm sau)':''}</strong> · ${esc(x.it.title)}</div>
+            ${warns.length?`<div class="qa-warn">⚠️ ${warns.join('; ')}</div>`:''}</div>
+          <select class="qa-t">${typeOptions(x.type)}</select>
+          <select class="qa-g">${goalOptions(x.goalId)}</select></div>`;
+      }).join('')+
+      (cur.r.skipped.length?`<div class="qa-skip">Không đọc được giờ ở ${cur.r.skipped.length} dòng: ${cur.r.skipped.slice(0,4).map(x=>'dòng '+x.lineNo+' "'+esc(x.text.slice(0,40))+'"').join(', ')}${cur.r.skipped.length>4?'...':''}</div>`:'');
+    const n=rows.filter(x=>!x.skip).length;
+    $m('#qa-add').disabled=!n;
+    $m('#qa-add').textContent=n?`Thêm ${n} ${cur.target==='week'?'block':'block mẫu'}`:'Thêm';
+    $$('#qa-preview .qa-row').forEach(row=>{
+      const ln=Number(row.dataset.ln); const o=over[ln]||(over[ln]={});
+      $('.qa-on',row).onchange=e=>{ o.skip=!e.target.checked; preview(); };
+      $('.qa-t',row).onchange=e=>{ o.type=e.target.value; preview(); };
+      $('.qa-g',row).onchange=e=>{ o.goalId=e.target.value; preview(); };
+    });
+  };
+  let timer=null;
+  $m('#qa-text').addEventListener('input', ()=>{ clearTimeout(timer); timer=setTimeout(preview, 250); });
+  ['#qa-target','#qa-date','#qa-type','#qa-goal','#qa-energy'].forEach(sel=>$m(sel).addEventListener('change', preview));
+  $m('#mCancel').onclick=closeModal;
+  $m('#qa-add').onclick=()=>{
+    const cur=read(); const rows=rowsOf(cur).filter(x=>!x.skip);
+    if(!rows.length) return;
+    if(cur.target==='template'){
+      const created=rows.map(x=>({id:'tpl'+uid().slice(2), weekday:x.it.weekday, start:x.it.start, end:x.it.end, endNextDay:x.it.endNextDay,
+        type:x.type, goalId:x.goalId, energy:x.energy, label:x.it.title, count:1, deadlineHours:'', createdAt:nowIso(), updatedAt:nowIso()}));
+      state.blockTemplates.push(...created);
+      logChanges(created.map(t=>mkChange(t.id,'create',null,{weekday:t.weekday,start:t.start,end:t.end},'user_edit','quick_add','blockTemplate')));
+      closeModal(); scheduleSave(); softRefresh(); toast(`Đã thêm ${created.length} block mẫu vào lịch khung 🧩`);
+      return;
+    }
+    const created=rows.map(x=>({id:'blk-q-'+uid(), templateId:'', start:x.start, end:x.end, type:x.type, goalId:x.goalId, energy:x.energy,
+      label:x.it.title, status:'planned', source:'manual', deadline:'', gcalEventId:'', updatedAt:nowIso()}));
+    state.blocks.push(...created);
+    logChanges(created.map(b=>mkChange(b.id,'create',null,pickB(b),'user_edit','quick_add')));
+    closeModal(); scheduleSave(); syncBlocksOut(created.map(b=>b.id)); softRefresh();
+    toast(`Đã thêm ${created.length} block 📋`);
+  };
+  setTimeout(()=>$m('#qa-text') && $m('#qa-text').focus(), 50);
 }
 function goalOptions(sel, emptyLabel){
   return `<option value="">${emptyLabel||'Không gắn mục tiêu'}</option>`+activeGoals().map(g=>`<option value="${escAttr(g.id)}" ${sel===g.id?'selected':''}>${esc(g.title)}${g.rank?' (hạng '+g.rank+')':''}</option>`).join('');
@@ -2910,7 +3099,9 @@ function renderTemplates(){
   const tpls=state.blockTemplates.filter(t=>!t.deletedAt);
   const acts=el('div','sch-actions');
   const add=el('button','btn btn-primary','+ Thêm block mẫu'); add.id='addTemplate'; add.onclick=()=>openTemplateModal();
-  acts.appendChild(add);
+  const qa=el('button','btn btn-ghost','📋 Dán vào lịch khung'); qa.id='quickAddTpl'; qa.onclick=()=>openQuickAddModal('template');
+  acts.append(add, qa);
+  if(tpls.length){ const ct=el('button','btn btn-danger','🗑 Xoá toàn bộ lịch khung'); ct.id='clearTemplates'; ct.onclick=askClearTemplates; acts.appendChild(ct); }
   if(!tpls.length){
     const seed=el('button','btn btn-ghost','Nạp lịch khung mẫu (Phụ lục spec)'); seed.id='loadSeed';
     seed.onclick=()=>confirmAction('Nạp lịch khung mẫu của founder (27 block mẫu, giờ ngủ và 5 mục tiêu GPA, Gym, Quan hệ, Startup, CLB)? Mục tiêu trùng tên sẽ được dùng lại.', 'Nạp', ()=>{ loadFounderSeed(); softRefresh(); });
@@ -3031,6 +3222,14 @@ function renderSleepSettings(){
     <label class="switch" style="margin-top:8px;"><input type="checkbox" id="st-auto" ${s.autoGenerateWeek!==false?'checked':''}> Mỗi Chủ nhật tự sinh block cho tuần tới từ lịch khung</label>
     <p class="subtle" style="margin-top:8px;">Lần đọc lịch gần nhất: ${state.calendarSync.lastSyncAt?esc(fmtDate(ymdOf(state.calendarSync.lastSyncAt))+' '+hm(state.calendarSync.lastSyncAt)):'chưa có'}</p>`;
   wrap.appendChild(opt);
+  const danger=el('div','card alert-card'); danger.style.marginTop='16px';
+  const allBlocks=state.blocks.filter(isBulkDeletable);
+  danger.innerHTML=`<h3 style="margin-top:0;">🗑 Làm lại từ đầu</h3>
+    <p class="subtle">Xoá block ở mọi tuần (${allBlocks.length} block) hoặc xoá toàn bộ lịch khung. Sự kiện tương ứng trên Google Calendar cũng bị xoá; sự kiện bạn tự tạo trên Google thì giữ nguyên. Có nút Hoàn tác ngay sau khi xoá.</p>`;
+  const da=el('button','btn btn-danger','Xoá tất cả block (mọi tuần)'); da.id='clearAllBlocks'; da.onclick=()=>askBulkDelete(state.blocks.filter(b=>!b.deletedAt), 'mọi tuần');
+  const dt=el('button','btn btn-danger','Xoá toàn bộ lịch khung'); dt.style.marginLeft='6px'; dt.onclick=askClearTemplates;
+  danger.append(da, dt);
+  wrap.appendChild(danger);
   setTimeout(()=>{
     const save=$('#sl-save'); if(!save) return;
     save.onclick=()=>{

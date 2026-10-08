@@ -616,6 +616,66 @@
     return { blocks: outBlocks, tasks: outTasks, created, changes };
   }
 
+  /* ======================= Dán lịch nhanh từ văn bản =======================
+     Mỗi dòng: "giờ - giờ: việc", ví dụ "16h-18h30: Học giải tích", "7:00 - 9:15 Ôn đại số",
+     "7-9h Gym", hoặc chỉ giờ bắt đầu "20h: Gọi điện" (mặc định 60 phút, đánh dấu assumedEnd).
+     Dòng tiêu đề thứ ("Thứ 2", "T3:", "CN", "Chủ nhật") hoặc ngày ("08/10", "Ngày 8/10/2026")
+     đổi ngày cho các dòng phía sau; tiêu đề cũng có thể nằm chung dòng: "T4: 9h-11h Học".
+     Không có tiêu đề thì dùng opts.defaultDate. Trả về {items, skipped}. */
+  const WD_WORDS = { hai: 1, ba: 2, 'tư': 3, tu: 3, 'năm': 4, nam: 4, 'sáu': 5, sau: 5, 'bảy': 6, bay: 6 };
+  const SEP = '[\\s:,.\\-–—)|]';
+  const RE_DAY = new RegExp(`^\\s*(?:[-*•+]\\s*)?(?:(thứ|thu)\\s*(hai|ba|tư|tu|năm|nam|sáu|sau|bảy|bay|[2-7])|t\\s*([2-7])|(cn|chủ\\s*nhật|chu\\s*nhat))(?=${SEP}|$)${SEP}*(.*)$`, 'iu');
+  const RE_DATE = new RegExp(`^\\s*(?:[-*•+]\\s*)?(?:ngày\\s*)?(\\d{1,2})\\/(\\d{1,2})(?:\\/(\\d{2,4}))?(?=${SEP}|$)${SEP}*(.*)$`, 'iu');
+  const T = '(\\d{1,2})(?:\\s*(?:h|g|:|giờ)\\s*(\\d{1,2})?\\s*(?:p|ph|phút)?)?';
+  const RE_RANGE = new RegExp(`^\\s*(?:[-*•+]\\s*|\\d+[.)]\\s+)?${T}\\s*(?:-|–|—|~|đến|den|tới|toi|to)\\s*${T}(?:\\s*[:.\\-–—|,]+\\s*|\\s+|$)(.*)$`, 'iu');
+  const RE_SINGLE = new RegExp(`^\\s*(?:[-*•+]\\s*|\\d+[.)]\\s+)?(\\d{1,2})\\s*(?:h|g|:)\\s*(\\d{1,2})?\\s*(?:[:.\\-–—|,]+\\s*|\\s+)(.+)$`, 'iu');
+  function hm2(h, m) { return `${pad(h)}:${pad(m)}`; }
+  function okTime(h, m) { return Number.isInteger(h) && Number.isInteger(m) && h >= 0 && h <= 24 && m >= 0 && m < 60 && !(h === 24 && m > 0); }
+  function parseQuickSchedule(text, opts) {
+    opts = opts || {};
+    const defaultDate = opts.defaultDate || opts.weekStart;
+    const weekStart = opts.weekStart || weekStartYmd(localToMs(defaultDate, '12:00', 0), 0);
+    const items = [], skipped = [];
+    let curDate = defaultDate;
+    String(text || '').normalize('NFC').split(/\r?\n/).forEach((raw, idx) => {
+      let line = raw.trim();
+      const lineNo = idx + 1;
+      if (!line) return;
+      let m = line.match(RE_DAY);
+      if (m) {
+        let wd;
+        if (m[4]) wd = 0; else if (m[3]) wd = Number(m[3]) - 1;
+        else { const w = m[2].toLowerCase(); wd = /^\d$/.test(w) ? Number(w) - 1 : WD_WORDS[w]; }
+        curDate = addDaysYmd(weekStart, (wd + 6) % 7);
+        line = m[5].trim();
+        if (!line) return;
+      } else if ((m = line.match(RE_DATE))) {
+        const d = Number(m[1]), mo = Number(m[2]);
+        let y = m[3] ? Number(m[3]) : Number(weekStart.slice(0, 4));
+        if (y < 100) y += 2000;
+        if (d >= 1 && d <= 31 && mo >= 1 && mo <= 12) {
+          curDate = `${y}-${pad(mo)}-${pad(d)}`;
+          line = m[4].trim();
+          if (!line) return;
+        }
+      }
+      let r = line.match(RE_RANGE), sh, sm, eh, em, title, assumedEnd = false;
+      if (r) { sh = +r[1]; sm = +(r[2] || 0); eh = +r[3]; em = +(r[4] || 0); title = r[5]; }
+      else if ((r = line.match(RE_SINGLE))) { sh = +r[1]; sm = +(r[2] || 0); title = r[3]; eh = sh + 1; em = sm; assumedEnd = true; }
+      if (!r || !okTime(sh, sm) || !okTime(Math.min(eh, 24), em)) { skipped.push({ lineNo, text: raw.trim() }); return; }
+      title = String(title || '').replace(/^[\s:.\-–—|,]+/, '').trim() || '(chưa đặt tên)';
+      const startMin = sh * 60 + sm;
+      let endMin = eh * 60 + em;
+      let endNextDay = false;
+      if (endMin >= 24 * 60) { endMin -= 24 * 60; endNextDay = true; }
+      else if (endMin <= startMin) endNextDay = true; // ví dụ 23h-1h
+      if (startMin >= 24 * 60) { skipped.push({ lineNo, text: raw.trim() }); return; }
+      items.push({ lineNo, date: curDate, weekday: weekdayOfYmd(curDate), start: hm2(Math.floor(startMin / 60), startMin % 60),
+        end: hm2(Math.floor(endMin / 60), endMin % 60), endNextDay, title: title.slice(0, 120), assumedEnd });
+    });
+    return { items, skipped };
+  }
+
   /* ======================= Ngân sách tuần thực tế ======================= */
   function weekBudget(blocks, goals, checkins, weekMondayYmd, now, ctx) {
     const { cfg, off } = makeCtx(ctx);
@@ -742,7 +802,7 @@
 
   return {
     ENGINE_CONFIG, propose, applyProposal, generateWeekBlocks, checkinQueue, markStaleUnknown, applyCheckin,
-    proposeTaskSlots, proposeMakeup, applyMakeup, weekBudget, plannedBudget: (blocks, goals, weekYmd, ctx) => { const c = makeCtx(ctx); return plannedBudget(blocks, goals, weekYmd, c.off, c.cfg); },
+    proposeTaskSlots, proposeMakeup, applyMakeup, parseQuickSchedule, weekBudget, plannedBudget: (blocks, goals, weekYmd, ctx) => { const c = makeCtx(ctx); return plannedBudget(blocks, goals, weekYmd, c.off, c.cfg); },
     weekStats, emptyBuffersAt, findConflicts, founderSeed, placementBlockId,
     // tiện ích thời gian (dùng chung cho giao diện và test)
     time: { parseTime, parseDeadline, toISO, localParts, localToMs, addDaysYmd, weekStartYmd, sleepIntervals, endOfLocalDay },
