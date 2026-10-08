@@ -47,8 +47,7 @@ function assert(c, m) { if (!c) throw new Error('ASSERT FAILED: ' + m); }
   });
 
   await step('Dán lịch nhanh trên bản live: đọc đúng "16h-18h30: Học giải tích"', async () => {
-    const r = await page.evaluate(() => GSEngine.parseQuickSchedule('Thứ 6
-16h-18h30: Học giải tích', { defaultDate: '2026-10-08', weekStart: '2026-10-05' }).items[0]);
+    const r = await page.evaluate(() => GSEngine.parseQuickSchedule('Thứ 6\n16h-18h30: Học giải tích', { defaultDate: '2026-10-08', weekStart: '2026-10-05' }).items[0]);
     assert(r && r.date === '2026-10-09' && r.start === '16:00' && r.end === '18:30' && r.title === 'Học giải tích', JSON.stringify(r));
   });
 
